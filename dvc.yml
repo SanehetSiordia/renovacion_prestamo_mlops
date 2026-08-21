@@ -1,0 +1,12 @@
+stages:
+  download_data:
+    cmd: make download-data
+    deps:
+      - Makefile
+    outs:
+      - data/raw/raw_renovacion_prestamo.csv:
+          cache: true
+          persist: true
+      - data/processed/processed_renovacion_prestamo.csv:
+          cache: true
+          persist: true

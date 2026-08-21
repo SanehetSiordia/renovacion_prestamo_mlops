@@ -1,0 +1,126 @@
+services:
+  dvc_aws_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dvc_aws_server
+    image: ${IMAGE_NAME_DVC}:${IMAGE_VERSION}
+    container_name: ${DOCKER_DVC_NAME}
+    env_file:
+      - .env
+    volumes:
+      - ./.git:/workspace/.git
+      - ./.dvc:/workspace/.dvc
+      - ./data:/workspace/data
+      - ./dvc.yml:/workspace/dvc.yml
+      - ./dvc.lock:/workspace/dvc.lock
+      - ./entrypoint.sh:/workspace/entrypoint.sh
+    working_dir: /workspace
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "chmod +x /workspace/entrypoint.sh && /workspace/entrypoint.sh && tail -f /dev/null"
+
+  mlflow_service:
+      env_file:
+        - .env
+      build:
+        context: .
+        dockerfile: Dockerfile
+        target: mlflow_server
+      image: ${IMAGE_NAME_MLFLOW}:${IMAGE_VERSION}
+      container_name: ${DOCKER_MLFLOW_NAME}
+      environment:
+        - MLFLOW_TRACKING_URI_DOCKER=${MLFLOW_TRACKING_URI_DOCKER}
+      volumes:
+        - ./mlruns:/mlruns
+      ports:
+        - '5000:5000'
+      networks:
+        - ${APP_NETWORK_NAME}
+      healthcheck:
+        test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)"]
+        interval: 5s
+        timeout: 3s
+        retries: 5
+        start_period: 5s
+
+  training_service:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training_server
+    image: ${IMAGE_NAME_TRAINING}:${IMAGE_VERSION}
+    container_name: ${DOCKER_TRAINING_NAME}
+    restart: always
+    command: tail -f /dev/null
+    environment:
+      - PIPELINE_VERSION=${PIPELINE_VERSION}
+      - PYTHONPATH=/app
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+    volumes:
+      - ./requirements:/app/requirements:ro
+      - ./setup.cfg:/app/setup.cfg:ro
+      - ./config.py:/app/config.py:ro
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data
+      - /app/__pycache__
+      - /app/.pytest_cache
+    networks:
+      - ${APP_NETWORK_NAME}
+    depends_on:
+      mlflow_service:
+        condition: service_healthy
+
+  fastapi_service:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: fastapi_server
+      args:
+      - PIPELINE_VERSION=${PIPELINE_VERSION}
+      - PORT_LOCAL=${PORT_LOCAL}
+      - PORT_REMOTE=${PORT_REMOTE}
+      - PYTHONPATH=/app
+    image: ${IMAGE_NAME_FASTAPI}:${IMAGE_VERSION}
+    container_name: ${DOCKER_FASTAPI_NAME}
+    restart: always
+    environment:
+      - PYTHONPATH=/app
+      - PORT_LOCAL=${PORT_LOCAL}
+      - PORT_REMOTE=${PORT_REMOTE}
+    ports:
+      - '${PORT_LOCAL}:${PORT_REMOTE}'    
+    volumes:
+      - ./requirements:/app/requirements:ro
+      - ./config.py:/app/config.py:ro
+      - ./artifacts:/app/artifacts
+      - ./api:/app/api
+    networks:
+      - ${APP_NETWORK_NAME}
+
+  gcp_vertexai_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gcp_vertexai_server
+    image: ${IMAGE_NAME_GCP_VERTEXAI}:${IMAGE_VERSION}
+    container_name: ${DOCKER_GCP_VERTEXAI_NAME}
+    env_file:
+      - .env
+    volumes:
+      - ./artifacts:/workspace/artifacts
+      - ${APPDATA}/gcloud:/root/.config/gcloud
+    working_dir: /workspace
+    command: tail -f /dev/null
+
+networks:
+  renovacion_prestamo-net:
+    name: ${APP_NETWORK_NAME}
+    driver: bridge

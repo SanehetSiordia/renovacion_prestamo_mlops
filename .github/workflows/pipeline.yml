@@ -1,0 +1,5 @@
+# .github/workflows/pipeline.yml
+# CI/CD Pipeline — MLOps Renovacion de Prestamo Sinhue
+# Se activa con: push a main o pull_request a main
+
+#name: ML Pipeline CI/CD

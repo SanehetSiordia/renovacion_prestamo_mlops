@@ -1,0 +1,70 @@
+# Git and IDE
+.git
+.gitignore
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environments
+.env
+.env*
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.python-version
+*.ipynb
+.pytest_cache/
+
+# Large ML Assets
+notebooks/
+results/
+models/
+models/*.pth
+models/*.h5
+models/*.onnx
+models/*.pkl
+checkpoints/
+credentials/
+
+# Logs & Monitoring
+logs/
+*.log
+mlruns.db
+mlruns/         # MLflow tracking
+tensorboard/    # TensorBoard logs
+lightning_logs/ # PyTorch Lightning logs
+wandb/          # Weights & Biases sync files
+
+# Build & OS Artifacts
+dist/
+build/
+.DS_Store
+.dockerignore
+Dockerfile
+docker-compose*
+compose*
+README.md
+.devcontainer/
+
+#DVC Cache and Data
+.dvc/cache
+.dvc/tmp
+.dvc/cache/*
+.dvc/.gitignore
+*.csv
+
+#NOT IGNORE
+!src/
+!api/
+!requirements.txt
+!main.py
