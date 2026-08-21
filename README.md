@@ -36,6 +36,7 @@ Proyecto integral de **MLOPs End-To-End** diseñado para predecir la propensión
 - Make
 - Cuenta AWS
 - Cuenta Google Cloud
+- Google Cloud CLI
 
 ### Instalación del entorno
 **_Por temas de seguridad no se deben compartir las llaves de acceso a los repositorios cloud_**
@@ -52,6 +53,7 @@ Crear archivo .env con base al archivo **_.env.example_** y llenar los datos con
 Descargar Docker Desktop de la ruta oficial **[Docker Desktop on Windows](https://docs.docker.com/desktop/setup/install/windows-install/)**
 
 ```bash
+
 # Instalar la herramienta Make para la gestion de CI/CD en maquina local con el comando en CMD:
 winget install ezwinports.make
 # Comprobar Make instalado con el comando en CMD:
@@ -63,19 +65,28 @@ git clone https://github.com/SanehetSiordia/renovacion_prestamo_mlops.git
 cd renovacion_prestamo_mlops
 # Ejecutar comando Make en CMD:
 Make all
-#Validar entornos virtuales desde Browser:
+# Validar entornos virtuales desde Browser:
 http://localhost:8085/          --FastApi Home
 http://localhost:8085/docs      --FastApi OpenApi
 http://localhost:8085/health    --FastApi Healthchek
 http://localhost:5000/          --MLFLOW GUI
-#En caso de tener cuenta Google Cloud ejecutar el comando en CMD:
+
+# En caso de tener cuenta Google Cloud debe tener instalado Google Cloud CLI
+# Para instalarlo en Windows debe ejecutar el siguiente comando en Powershell:
+(New-Object Net.WebClient).DownloadFile("https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe", "$env:Temp\GoogleCloudSDKInstaller.exe") & $env:Temp\GoogleCloudSDKInstaller.exe
+
+# Debe iniciar el programa con el comando en CMD:
+gcloud init
+# Para generar las credenciales ADC debe ejecutar el comando en CMD:
 gcloud auth application-default login
-#Ingresar al proyecto GCP correspondiente y ejecutar el comando en CMD:
+# Por ultimo debe ejecutar el comando del makefile en CMD:
 make all-gcp
-#Detener todo los contenedores y purgar volumenes y cache con:
+
+# Detener todo los contenedores, purgar volumenes y cache con el comando en CMD:
 make down
-#Para mayor informacion ejecutar comando make:
+# Para mayor informacion ejecutar comando make en el CMD:
 make help
+
 ```
 En caso de tener cuenta Google Cloud y querer registrar el modelo y API se debe visualizar de la siguiente forma el proyecto:
 **_Registro del modelo .pkl , .skops y .json en GCP storage_**:
