@@ -1,0 +1,17 @@
+#Base
+skops>=0.14.0
+pydantic>=2.13.4
+python-dotenv>=1.2.2
+
+# ML
+scipy>=1.17.1
+imbalanced-learn>=0.14.1
+pandas>=2.2.0,<3.0.0
+numpy>=2.0.0,<3.0.0
+xgboost>=2.0.0,<3.0.0
+scikit-learn>=1.8.0
+mlflow>=3.12.0
+
+# CI/CD
+pytest>=9.0.3
+flake8>=7.3.0

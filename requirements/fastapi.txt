@@ -1,0 +1,10 @@
+#Base
+pydantic>=2.13.4
+python-dotenv>=1.2.2
+xgboost>=2.0.0,<3.0.0
+
+# API
+fastapi>=0.136.1
+uvicorn>=0.47.0
+python-multipart>=0.0.28
+httpx>=0.28.1

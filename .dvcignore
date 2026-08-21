@@ -1,0 +1,35 @@
+# DVC Internals
+.dvc/cache/
+.dvc/tmp/
+
+# Temporary/Log Files
+*.log
+tmp/
+temp/
+credentials/
+
+# Git & System
+.git/
+.gitignore
+.DS_Store
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+notebooks/
+*.ipynb
+entrypoint.sh
+.vscode/
+
+# Docker
+.dockerignore
+*.tar
+.devcontainer/
+
+# MLflow 
+mlruns/
+mlruns.db
+.coverage
+
+#Models
+artifacts/
+*.json
