@@ -25,7 +25,7 @@ Proyecto integral de **MLOPs End-To-End** diseñado para predecir la propensión
 
 ---
 ## 🏛️ Arquitectura del Sistema
-![](./evidencias/MLOPS_diagram.png)
+![](./evidencias/diagram.png)
 
 ---
 
