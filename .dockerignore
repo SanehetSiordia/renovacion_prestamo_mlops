@@ -24,6 +24,8 @@ __pycache__/
 .python-version
 *.ipynb
 .pytest_cache/
+evidently_workspace/
+.evidently/
 
 # Large ML Assets
 notebooks/

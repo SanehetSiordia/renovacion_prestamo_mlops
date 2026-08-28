@@ -27,6 +27,8 @@ tensorboard/    # TensorBoard logs
 lightning_logs/ # PyTorch Lightning logs
 wandb/          # Weights & Biases sync files
 credentials/
+evidently_workspace/
+.evidently/
 
 # Distribution / packaging
 .Python

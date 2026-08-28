@@ -35,7 +35,7 @@ WORKDIR /app
 
 COPY requirements/ /app/requirements/
 
-# ── Instalar dependencias del sistema (mínimas) ───────────────────────────────
+# ── Instalar dependencias del sistema (minimas) ───────────────────────────────
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --prefer-binary -r /app/requirements/training.txt
 
@@ -97,3 +97,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*    
 
 CMD ["tail", "-f", "/dev/null"]
+
+# ── Etapa 6 - Gestor de Evidently Monitoring ────────────────
+FROM python:3.12-slim AS evidently_server
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    EVIDENTLY_PORT_REMOTE=${EVIDENTLY_PORT_REMOTE}
+
+RUN pip install --no-cache-dir evidently
+
+WORKDIR /app
+RUN mkdir -p /app/workspace/evidently_workspace
+
+EXPOSE ${EVIDENTLY_PORT_REMOTE}
+
+CMD ["sh", "-c", "exec evidently ui --workspace /app/workspace/evidently_workspace --host 0.0.0.0 --port ${EVIDENTLY_PORT_REMOTE}"]

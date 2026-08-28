@@ -120,6 +120,30 @@ services:
     working_dir: /workspace
     command: tail -f /dev/null
 
+  evidently_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: evidently_server
+    image: ${IMAGE_NAME_EVIDENTLY_VERTEXAI}:${IMAGE_VERSION}
+    container_name: ${DOCKER_EVIDENTLY_VERTEXAI_NAME}
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app
+      - EVIDENTLY_PORT_REMOTE=${EVIDENTLY_PORT_REMOTE}
+    ports:
+      - '${EVIDENTLY_PORT_LOCAL}:${EVIDENTLY_PORT_REMOTE}'
+    volumes:
+      - ./evidently_workspace:/app/workspace/evidently_workspace
+    networks:
+      - ${APP_NETWORK_NAME}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request, os; port = os.getenv('EVIDENTLY_PORT_REMOTE', '8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/version', timeout=2)"]      
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
 networks:
   renovacion_prestamo-net:
     name: ${APP_NETWORK_NAME}
