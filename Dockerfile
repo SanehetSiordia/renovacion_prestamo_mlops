@@ -98,18 +98,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 CMD ["tail", "-f", "/dev/null"]
 
-# ── Etapa 6 - Gestor de Evidently Monitoring ────────────────
+
+# ── Etapa 6 - Gestor de Evidently ────────────────
 FROM python:3.12-slim AS evidently_server
 
-ENV PYTHONUNBUFFERED=1 \
+ARG EVIDENTLY_PORT_REMOTE
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     EVIDENTLY_PORT_REMOTE=${EVIDENTLY_PORT_REMOTE}
 
-RUN pip install --no-cache-dir evidently
-
 WORKDIR /app
-RUN mkdir -p /app/workspace/evidently_workspace
+
+RUN mkdir -p /app/workspace/evidently_workspace /app/reports
+
+COPY requirements/ /app/requirements/
+
+# ── Instalar dependencias del sistema (minimas) ───────────────────────────────
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --prefer-binary -r /app/requirements/evidently.txt
 
 EXPOSE ${EVIDENTLY_PORT_REMOTE}
 
-CMD ["sh", "-c", "exec evidently ui --workspace /app/workspace/evidently_workspace --host 0.0.0.0 --port ${EVIDENTLY_PORT_REMOTE}"]
+CMD ["sh", "-c", "exec evidently ui --workspace /app/workspace --host 0.0.0.0 --port ${EVIDENTLY_PORT_REMOTE}"]

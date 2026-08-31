@@ -430,7 +430,6 @@ def exportar_modelo_resultados(modelo: ClassifierMixin, datos_json: dict) -> Non
 
 def run():
     log.info('=== ETAPA 3: ENTRENAMIENTO Y SELECCION DEL MEJOR MODELO ===')
-    Path("artifacts").mkdir(parents=True, exist_ok=True)
     if not C.PROCESSED_DATA_PATH.exists():
         raise FileNotFoundError(f'Dataset no encontrado: {C.PROCESSED_DATA_PATH}')
     df = pd.read_csv(C.PROCESSED_DATA_PATH, sep=',')

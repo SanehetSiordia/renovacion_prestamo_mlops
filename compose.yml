@@ -121,12 +121,16 @@ services:
     command: tail -f /dev/null
 
   evidently_service:
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
       target: evidently_server
-    image: ${IMAGE_NAME_EVIDENTLY_VERTEXAI}:${IMAGE_VERSION}
-    container_name: ${DOCKER_EVIDENTLY_VERTEXAI_NAME}
+      args:
+        - EVIDENTLY_PORT_REMOTE=${EVIDENTLY_PORT_REMOTE}
+    image: ${IMAGE_NAME_EVIDENTLY}:${IMAGE_VERSION}
+    container_name: ${DOCKER_EVIDENTLY_NAME}
     restart: unless-stopped
     environment:
       - PYTHONPATH=/app
@@ -134,15 +138,22 @@ services:
     ports:
       - '${EVIDENTLY_PORT_LOCAL}:${EVIDENTLY_PORT_REMOTE}'
     volumes:
-      - ./evidently_workspace:/app/workspace/evidently_workspace
+      - ./requirements:/app/requirements:ro
+      - ./config.py:/app/config.py:ro
+      - ./src:/app/src
+      - ./reports:/app/reports
+      - ./data:/app/data
+      - ./evidently_workspace:/app/workspace
+      - /app/__pycache__
+      - /app/.pytest_cache
     networks:
       - ${APP_NETWORK_NAME}
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request, os; port = os.getenv('EVIDENTLY_PORT_REMOTE', '8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/version', timeout=2)"]      
-      interval: 10s
+      test: ["CMD", "python3", "-c", "import urllib.request, os; port = os.getenv('EVIDENTLY_PORT_REMOTE', '8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/projects', timeout=3)"]      
+      interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 10s
 
 networks:
   renovacion_prestamo-net:
