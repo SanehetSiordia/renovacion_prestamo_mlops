@@ -1,26 +1,24 @@
 """
-report_drift.py — genera un informe de drift de datos con Evidently.
-Entrada :
-    data/processed/processed_renovacion_prestamo.csv
-Salida  : Reporte HTML en la ruta reports/reporte_drift_renovacion.html
-  reporte_drift_renovacion.html     — drift en todas las features y target
+report_drift.py — Genera informe de drift de datos y configura dashboard en Evidently 0.7.21.
+Entrada : data/processed/processed_renovacion_prestamo.csv
+Salida  : Reporte HTML, archivo JSON y Dashboard activo en Evidently UI Workspace.
 """
 
 import logging
 from pathlib import Path
 import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import config as C
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from evidently import ColumnMapping
-from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
+
+from evidently import Report, Dataset, DataDefinition
+from evidently.presets import DataDriftPreset
 from evidently.ui.workspace import Workspace
-from evidently.ui.dashboards import *
-from evidently.renderers.html_widgets import WidgetSize
+from evidently.sdk.models import PanelMetric
+from evidently.sdk.panels import DashboardPanelPlot
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import config as C
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | REPORT_DRIFT | %(levelname)s | %(message)s',
                     datefmt='%H:%M:%S')
@@ -39,33 +37,32 @@ def cargar_datos() -> tuple[pd.DataFrame, pd.DataFrame]:
     log.info(f'Partición completada -> Referencia: {df_reference.shape[0]} registros | Actual: {df_current.shape[0]} registros')
     return df_reference, df_current
 
-def generar_reporte_drift(df_reference: pd.DataFrame, df_current: pd.DataFrame) -> Report:
-    column_mapping = ColumnMapping(
-        target=C.TARGET,
-        numerical_features=C.NUMERICAL_FEATURES,
-        categorical_features=C.CATEGORICAL_FEATURES
+def generar_reporte_drift(df_reference: pd.DataFrame, df_current: pd.DataFrame):
+    data_definition = DataDefinition(
+        numerical_columns=C.NUMERICAL_FEATURES,
+        categorical_columns=C.CATEGORICAL_FEATURES
     )
 
-    report = Report(metrics=[
-        DataDriftPreset(),
-        TargetDriftPreset()
-    ])
-    log.info("Ejecutando pruebas estadísticas de Data Drift y Target Drift...")
+    reference_dataset = Dataset.from_pandas(df_reference, data_definition=data_definition)
+    current_dataset = Dataset.from_pandas(df_current, data_definition=data_definition)
 
-    report.run(
-        reference_data=df_reference,
-        current_data=df_current,
-        column_mapping=column_mapping
+    report = Report([DataDriftPreset()])
+    log.info("Ejecutando pruebas estadísticas de Data Drift con Evidently 0.7.21...")
+
+    report_result = report.run(
+        current_data=current_dataset,
+        reference_data=reference_dataset
     )
 
-    report.save_html(str(C.REPORT_DRIFT_PATH))
-    log.info(f'Reporte HTML guardado exitosamente en: {C.REPORT_DRIFT_PATH}')
+    report_result.save_html(str(C.REPORT_DRIFT_PATH))
+    log.info(f'Reporte HTML guardado en: {C.REPORT_DRIFT_PATH}')
+    
+    report_result.save_json(str(C.JSON_DRIFT_PATH))
+    log.info(f'Reporte JSON guardado en: {C.JSON_DRIFT_PATH}')
 
-    report.save_json(str(C.JSON_DRIFT_PATH))
-    log.info(f'Reporte JSON guardado exitosamente en: {C.JSON_DRIFT_PATH}')
-    return report
+    return report_result
 
-def generar_monitoreo_evidently(report: Report):
+def generar_monitoreo_evidently(report_result):
     log.info(f"Conectando al workspace de Evidently en: {C.EVIDENTLY_WORKSPACE_DIR}")
     ws = Workspace.create(str(C.EVIDENTLY_WORKSPACE_DIR))
 
@@ -74,44 +71,107 @@ def generar_monitoreo_evidently(report: Report):
 
     if not projects:
         project = ws.create_project(project_name)
-        project.description = "Monitoreo de Data Drift y Target Drift para Renovación de Prestamos"
-
-        project.dashboard.add_panel(
-            DashboardPanelCounter(
-                filter=ReportFilter(metadata_values={}, tag_values=[]),
-                agg="last",
-                title="Número de Features Evaluadas",
-                value=PanelValue(
-                    metric_id="DatasetDriftMetric",
-                    field_path="number_of_columns",
-                    legend="Features"
-                ),
-                size=WidgetSize.HALF,
-            )
-        )
-        project.dashboard.add_panel(
-            DashboardPanelPlot(
-                title="Proporción de Drift en Features",
-                filter=ReportFilter(metadata_values={}, tag_values=[]),
-                values=[
-                    PanelValue(
-                        metric_id="DatasetDriftMetric",
-                        field_path="share_of_drifted_columns",
-                        legend="Share of Drifted Features",
-                    )
-                ],
-                plot_type=PlotType.LINE,
-                size=WidgetSize.FULL,
-            )
-        )
+        project.description = "Monitoreo de Data Drift para Renovación de Préstamos"
         project.save()
-        log.info(f"Proyecto nuevo '{project_name}' creado con paneles de dashboard.")
+        log.info(f"Proyecto nuevo '{project_name}' creado (ID: {project.id}).")
     else:
         project = projects[0]
         log.info(f"Proyecto existente encontrado: {project.name} (ID: {project.id})")
 
-    ws.add_report(project.id, report)
-    log.info(f"Reporte registrado exitosamente en el proyecto de Evidently UI.")
+    ws.add_run(project.id, report_result)
+    log.info("Reporte registrado exitosamente en el Workspace de Evidently UI.")
+
+    log.info("Configurando paneles en el Dashboard de Evidently UI...")
+    #Limpiar dashboard existente para evitar duplicados
+    project.dashboard.clear_dashboard()
+
+    tab_name = "Data Drift"
+
+    # Panel encabezado de texto
+    project.dashboard.add_panel(
+        DashboardPanelPlot(
+            title="Dashboard de Monitoreo de Data Drift",
+            size="full",
+            values=[],
+            plot_params={"plot_type": "text"},
+        ),
+        tab=tab_name,
+    )
+
+    # Panel 1: Contador - Columnas con Drift Detectado
+    project.dashboard.add_panel(
+        DashboardPanelPlot(
+            title="Columnas con Drift Detectado",
+            subtitle="Cantidad de características con drift en la última evaluación",
+            size="half",
+            values=[
+                PanelMetric(
+                    legend="Columnas con Drift",
+                    metric="DriftedColumnsCount",
+                    metric_labels={"value_type": "count"},
+                )
+            ],
+            plot_params={
+                "plot_type": "counter",
+                "aggregation": "last",
+                "empty_value_text": "0 (Sin Drift)",   # Mensaje personalizado si no hay registros
+                "default_value": "0",                  # Valor de respaldo numérico
+            },
+        ),
+        tab=tab_name,
+    )
+
+    # Panel 2: Contador - Proporción Total de Drift
+    project.dashboard.add_panel(
+        DashboardPanelPlot(
+            title="Proporción Total de Drift",
+            subtitle="Porcentaje de características con drift en la última evaluación",
+            size="half",
+            values=[
+                PanelMetric(
+                    legend="% Columnas Drift",
+                    metric="DriftedColumnsCount",
+                    metric_labels={"value_type": "share"},
+                )
+            ],
+            plot_params={
+                "plot_type": "counter",
+                "aggregation": "last",
+                "empty_value_text": "0.0% (Sin Drift)", # Mensaje personalizado si no hay registros
+                "default_value": "0.0%",
+            },
+        ),
+        tab=tab_name,
+    )
+
+    # Panel 3: Gráfico de Línea - Evolución del share de Drift
+    project.dashboard.add_panel(
+        DashboardPanelPlot(
+            title="Tendencia de Proporción de Drift en Features",
+            subtitle="Evolución temporal del share de drift en los reportes evaluados",
+            size="full",
+            values=[
+                PanelMetric(
+                    legend="Share of Drifted Columns",
+                    metric="DriftedColumnsCount",
+                    metric_labels={"value_type": "share"},
+                )
+            ],
+            plot_params={
+                "plot_type": "line",
+                "empty_value_text": "Sin historial de drift",
+            },
+        ),
+        tab=tab_name,
+    )
+
+    # Guardar configuración del dashboard
+    project.save()
+
+    # Registrar el reporte / snapshot en el proyecto
+    ws.add_run(project.id, report_result)
+    log.info("Reporte registrado exitosamente en el Workspace de Evidently UI.")
+    log.info(f"Dashboard actualizado y guardado exitosamente para el proyecto '{project_name}'.")
     return
 
 # ── Función principal ─────────────────────────────────────────────────────
@@ -120,10 +180,10 @@ def run():
     df_reference, df_current = cargar_datos()
     
     log.info("\n=== ETAPA [2/3] Generando reporte de Data & Target Drift ===")
-    report = generar_reporte_drift(df_reference, df_current)
+    report_result = generar_reporte_drift(df_reference, df_current)
 
     log.info("\n=== ETAPA [3/3] Generando Monitero para visualización del reporte ===")
-    generar_monitoreo_evidently(report)
+    generar_monitoreo_evidently(report_result)
 
     log.info('=== PROCESO FINALIZADO CON ÉXITO ===')
 

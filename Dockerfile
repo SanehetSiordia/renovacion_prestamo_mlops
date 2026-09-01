@@ -122,4 +122,4 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 EXPOSE ${EVIDENTLY_PORT_REMOTE}
 
-CMD ["sh", "-c", "exec evidently ui --workspace /app/workspace --host 0.0.0.0 --port ${EVIDENTLY_PORT_REMOTE}"]
+CMD ["sh", "-c", "exec evidently ui --workspace /app/evidently_workspace --host 0.0.0.0 --port ${EVIDENTLY_PORT_REMOTE}"]
