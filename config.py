@@ -7,19 +7,30 @@ import os
 from pathlib import Path
 
 # ── Directorios ──────────────────────────────────────────────────────────────
-ROOT_DIR      = Path(__file__).parent
-DATA_RAW_DIR      = ROOT_DIR / 'data/raw'
-DATA_PROCESSED_DIR      = ROOT_DIR / 'data/processed'
+ROOT_DIR = Path(__file__).parent
+DATA_RAW_DIR = ROOT_DIR / 'data/raw'
+DATA_PROCESSED_DIR = ROOT_DIR / 'data/processed'
 ARTIFACTS_DIR = ROOT_DIR / 'artifacts'
+REPORTS_DIR = ROOT_DIR / 'reports'
+EVIDENTLY_WORKSPACE_DIR = ROOT_DIR / 'evidently_workspace'
+
+# ── Crear carpetas necesarias ─────────────────────────────────────────────────────────────────
+DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+DATA_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+EVIDENTLY_WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Archivos ─────────────────────────────────────────────────────────────────
-RAW_DATA_PATH   = DATA_RAW_DIR      / 'raw_renovacion_prestamo.csv'
+RAW_DATA_PATH = DATA_RAW_DIR      / 'raw_renovacion_prestamo.csv'
 PROCESSED_DATA_PATH = DATA_PROCESSED_DIR / 'processed_renovacion_prestamo.csv'
+REPORT_DRIFT_PATH = REPORTS_DIR / 'reporte_drift_renovacion.html'
+JSON_DRIFT_PATH = REPORTS_DIR / 'reporte_drift_renovacion.json'
 
-MODEL_PKL_PATH      = ARTIFACTS_DIR / 'model.pkl'
-MODEL_SKOPS_PATH      = ARTIFACTS_DIR / 'model.skops'
-MODEL_JSON_PATH      = ARTIFACTS_DIR / 'model.json'
-METRICS_PATH    = ARTIFACTS_DIR / 'metrics.json'
+MODEL_PKL_PATH = ARTIFACTS_DIR / 'model.pkl'
+MODEL_SKOPS_PATH = ARTIFACTS_DIR / 'model.skops'
+MODEL_JSON_PATH = ARTIFACTS_DIR / 'model.json'
+METRICS_PATH = ARTIFACTS_DIR / 'metrics.json'
 
 # ── Columnas  para Preprocesamiento ────────────────────────────────────────────────
 TARGET     = 'FLAG_VENTA'
@@ -96,7 +107,6 @@ UMBRAL_MIN=float(os.getenv("UMBRAL_MIN","0.6"))
 MODEL_NAME=(os.getenv("MODEL_NAME","RenovacionPrestamo"))
 
 # ── features para predecir con el modelo ────────────────────────────────────────
-
 FEATURES = [
     "Plazo_Renovado",
     "Nro_Entidades",
@@ -114,6 +124,54 @@ FEATURES = [
     "Prestamo_vigente_LOG",
     "Promed_6Mdeuda_LOG",
     "Deuda_Cubierta_LOG",
+    "REGION_CALLAO",
+    "REGION_CENTRO",
+    "REGION_LIMA BALNEARIO",
+    "REGION_LIMA CENTRO",
+    "REGION_LIMA ESTE",
+    "REGION_LIMA MODERNA",
+    "REGION_LIMA NORTE",
+    "REGION_LIMA PROVINCIA",
+    "REGION_LIMA SUR",
+    "REGION_NORTE",
+    "REGION_OESTE",
+    "REGION_ORIENTE",
+    "REGION_SIERRA CENTRAL",
+    "REGION_SUR",
+    "SEXO_F",
+    "SEXO_M",
+    "EST_CIVIL_C",
+    "EST_CIVIL_D",
+    "EST_CIVIL_S",
+    "EST_CIVIL_U",
+    "EST_CIVIL_V",
+    "EST_CIVIL_X",
+    "EST_CIVIL_Y",
+    "Cluster"
+]
+
+# ── features para reporte Evidently ────────────────────────────────────────
+NUMERICAL_FEATURES = [
+    "Plazo_Renovado",
+    "Nro_Entidades",
+    "Dif_Entidades",
+    "Meses_oferta",
+    "EDAD",
+    "Uso_Linea_LOG",
+    "Uso_TrimLinea_LOG",
+    "Saldo_Consumo_LOG",
+    "SUELDO_ESTIMADO_LOG",
+    "ANTIGUEDAD_MES_LOG",
+    "Linea_Renovado_LOG",
+    "Ahorro_LOG",
+    "Prestamo_vigente_LOG",
+    "Promed_6Mdeuda_LOG",
+    "Deuda_Cubierta_LOG"
+]
+
+CATEGORICAL_FEATURES = [
+    'FLAG_VENTA',
+    "Flag_LimProv",
     "REGION_CALLAO",
     "REGION_CENTRO",
     "REGION_LIMA BALNEARIO",

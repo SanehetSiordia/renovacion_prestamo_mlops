@@ -24,6 +24,8 @@ __pycache__/
 .python-version
 *.ipynb
 .pytest_cache/
+evidently_workspace/
+.evidently/
 
 # Large ML Assets
 notebooks/
@@ -44,6 +46,7 @@ mlruns/         # MLflow tracking
 tensorboard/    # TensorBoard logs
 lightning_logs/ # PyTorch Lightning logs
 wandb/          # Weights & Biases sync files
+reports/reporte_drift_renovacion.html
 
 # Build & OS Artifacts
 dist/

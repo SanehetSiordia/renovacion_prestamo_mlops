@@ -4,9 +4,9 @@
 export
 
 .PHONY: create-dirs aws-dvc-up download-aws download-dvc dvc-push \
-        check-mlflow check-training \
+        check-mlflow check-training check-evidently \
         gcp-service-up validate-gcp-permissions upload-gcp-models register-vertex push-fastapi-gcp all-gcp \
-        all train test validate versions \
+        all train test validate versions report-data\
         dev-up dev-down dev-logs dev-logs-api dev-logs-mlflow dev-ps \
         prod-up prod-down deploy rollback clean-files clean-all help
 
@@ -27,10 +27,12 @@ IMAGE_TRAIN					?= $(IMAGE_NAME_TRAINING)
 IMAGE_SERVING				?= $(IMAGE_NAME_SERVING)
 IMAGE_MLFLOW				?= $(IMAGE_NAME_MLFLOW)
 IMAGE_DVC					?= $(IMAGE_NAME_DVC)
+IMAGE_EVIDENTLY				?= $(IMAGE_NAME_EVIDENTLY)
 IMAGE_NAME_GCP_VERTEXAI		?= $(IMAGE_NAME_GCP_VERTEXAI)
 
 DOCKER_TRAINING_NAME 		?= $(DOCKER_TRAINING_NAME)
 DOCKER_MLFLOW_NAME 			?= $(DOCKER_MLFLOW_NAME)
+DOCKER_EVIDENTLY_NAME	    ?= $(DOCKER_EVIDENTLY_NAME)
 DOCKER_GCP_VERTEXAI_NAME	?= $(DOCKER_GCP_VERTEXAI_NAME)
 
 GOOGLE_APPLICATION_CREDENTIALS	?= $(GOOGLE_APPLICATION_CREDENTIALS)
@@ -44,6 +46,7 @@ TRAINING_SERVICE_NAME		?= training_service
 GCP_SERVICE_NAME			?= gcp_vertexai_service
 MLFLOW_SERVICE_NAME			?= mlflow_service
 DVC_AWS_SERVICE_NAME		?= dvc_aws_service
+EVIDENTLY_SERVICE_NAME		?= evidently_service
 FASTAPI_SERVICE_NAME		?= fastapi_service
 
 # ── 1. Gestion de Datos y Versionado (AWS S3 & DVC) ─────────────────────────────────────────────
@@ -105,7 +108,21 @@ check-training: check-mlflow
 		echo "Contenedor $(DOCKER_TRAINING_NAME) inicializado."; \
 	fi
 
-all: download-dvc check-training train test validate versions
+check-evidently:
+	@STATUS=$$(docker inspect --format='{{.State.Health.Status}}' $(DOCKER_EVIDENTLY_NAME) 2>/dev/null || echo "not_found"); \
+	if [ "$$STATUS" = "healthy" ]; then \
+		echo "Contenedor $(DOCKER_EVIDENTLY_NAME) listo y saludable."; \
+	else \
+		echo "Contenedor $(DOCKER_EVIDENTLY_NAME) no disponible (Estado: $$STATUS). Levantando servicio..."; \
+		docker compose -f $(COMPOSE_FILE) up -d --build $(EVIDENTLY_SERVICE_NAME); \
+		echo "=== Esperando que el contenedor $(DOCKER_EVIDENTLY_NAME) pase el Healthcheck... ==="; \
+		until [ "$$(docker inspect --format='{{.State.Health.Status}}' $(DOCKER_EVIDENTLY_NAME) 2>/dev/null)" = "healthy" ]; do \
+			sleep 2; \
+		done; \
+		echo "Contenedor $(DOCKER_EVIDENTLY_NAME) listo y saludable para evaluar data drift."; \
+	fi
+
+all: download-dvc check-training train test validate versions report-data
 	@echo "====================================================="
 	@echo "Pipeline completado. Modelo Entrenado Exportado listo para API"
 	@echo "Proceda a ejecutar 'all-gcp' para subir artefactos a GCP y registrar el modelo en Vertex AI"
@@ -129,6 +146,10 @@ validate:
 versions:
 	@echo "=== [Paso 4/4] Registro de version en MLflow ==="
 	docker exec -i $(DOCKER_TRAINING_NAME) python src/manage_versions.py
+
+report-data: check-evidently
+	@echo "=== Evaluando y generando reporte de data-drift con Evidently ==="
+	docker exec -i $(DOCKER_EVIDENTLY_NAME) python src/report_drift.py
 
 # ── 3. Integracion y Publicacion en Google Cloud Platform (GCP) ──────────────
 
@@ -228,11 +249,13 @@ help:
 	@echo "2. Pipeline de CI/CD Local (Entrenamiento & Calidad):"
 	@echo "  make check-mlflow             — Valida o inicia el servidor de MLflow Tracking con Healthcheck"
 	@echo "  make check-training           — Valida o inicia el contenedor de entrenamiento"
-	@echo "  make all                      — Orquesta el flujo completo: DVC -> Train -> Tests -> Validate -> Versions"
+	@echo "  make check-evidently          — Valida o inicia el contenedor de evaluación de calidad de datos"
+	@echo "  make all                      — Orquesta el flujo completo: DVC -> Train -> Tests -> Validate -> Versions -> Data Drift"
 	@echo "  make train                    — Procesa datos y ejecuta el entrenamiento del modelo XGBoost"
 	@echo "  make test                     — Ejecuta pruebas unitarias de datos, modelo y pipeline (Pytest)"
 	@echo "  make validate                 — Aplica el Quality Gate de metricas sobre los artefactos"
 	@echo "  make versions                 — Registra el nuevo modelo y artefactos en MLflow Model Registry"
+	@echo "  make report-data              — Genera un informe de data drift con Evidently"
 	@echo ""
 	@echo "3. Integracion y Publicacion en Google Cloud Platform (GCP):"
 	@echo "  make gcp-service-up           — Inicia el contenedor gestor de GCP con sesion ADC de Windows"
