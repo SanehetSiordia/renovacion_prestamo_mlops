@@ -22,6 +22,10 @@ notebooks/
 entrypoint.sh
 .vscode/
 
+#evidently
+reports/*
+*.html
+
 # Docker
 .dockerignore
 *.tar

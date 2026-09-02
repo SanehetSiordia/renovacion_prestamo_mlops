@@ -94,6 +94,7 @@ coverage.xml
 *.py.cover
 .hypothesis/
 cover/
+reports/reporte_drift_renovacion.html
 
 # Translations
 *.mo
