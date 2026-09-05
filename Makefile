@@ -8,7 +8,7 @@ export
         gcp-service-up validate-gcp-permissions upload-gcp-models register-vertex push-fastapi-gcp all-gcp \
         all train test validate versions report-data\
         dev-up dev-down dev-logs dev-logs-api dev-logs-mlflow dev-ps \
-        prod-up prod-down deploy rollback clean-files clean-all help
+        prod-up prod-down deploy rollback clean-files clean-all help confirm
 
 COMPOSE_FILE		?= compose.yml
 COMPOSE_FILE_PROD	?= compose.prod.yml
@@ -214,7 +214,7 @@ all-gcp: upload-gcp-models register-vertex push-fastapi-gcp
 	@echo "Artefactos Registrados del Modelo Entrenado en GCP"
 	@echo "====================================================="
 
-# ── 6. Limpieza y Mantenimiento ────────────────────────────────────
+# ── 4. Limpieza y Mantenimiento ────────────────────────────────────
 down:
 	docker compose -f $(COMPOSE_FILE) down -v
 	docker builder prune -f
@@ -233,7 +233,40 @@ clean-all: clean-files
 	docker compose -f $(COMPOSE_FILE) down -v
 
 
-# ── 8. Ayuda en Consola ──────────────────────────────────────────────────────────
+
+# ── 5. Ejecucion en CodeSpace Github ──────────────────────────────────────────────────────────
+gitspaces: 
+	@echo "=== Ejecutando proyecto en CodeSpace Github ==="
+	@echo -n "Se encuentra en CodeSpace Github? [y/n]: " && read ans; \
+	if [ "$$ans" = "y" ]; then \
+		echo "Proceeding with the process..."; \
+		$(MAKE) install-dependencies; \
+	else \
+		echo "Process aborted."; \
+		exit 1; \
+	fi
+
+install-dependencies:
+	@echo "=== [Paso 1/X] Instalando dependencias en GithubSpaces ==="
+	pip install --no-cache-dir awscli "dvc[s3]"
+	pip install --no-cache-dir mlflow
+	pip install --no-cache-dir --prefer-binary -r requirements/codespaces.txt
+
+	@echo "Dependencias instaladas correctamente. Se procede con la ejecucion del pipeline completo."
+	$(MAKE) all-codespaces;
+
+all-codespaces:
+-include .env.codespaces
+	@echo "=== [Paso 2/X] Descargando datos desde AWS S3 versionados con DVC y Github Secrets ==="
+	@echo "Verificando credenciales de AWS..."
+	@test -n "$$AWS_ACCESS_KEY_ID" || (echo "Error: AWS_ACCESS_KEY_ID no está definida." && exit 1)
+	@test -n "$$AWS_SECRET_ACCESS_KEY" || (echo "Error: AWS_SECRET_ACCESS_KEY no está definida." && exit 1)
+	@echo "Descargando datos desde S3..."
+	dvc pull --force
+
+
+
+# ── 6. Ayuda en Consola ──────────────────────────────────────────────────────────
 help:
 	@echo ""
 	@echo "===================================================================="
