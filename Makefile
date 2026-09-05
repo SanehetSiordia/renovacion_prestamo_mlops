@@ -287,6 +287,41 @@ all-codespaces:
 	echo "================================================================="; \
 	echo ""
 
+	
+	@echo "=== [Paso 4/X] Ejecutando Training de Modelos ==="
+	python src/manage_data.py
+	python src/train_model.py
+
+	@echo "=== [Paso 5/X] Ejecutando pruebas unitarias ==="
+	pytest tests/test_data.py -v -s
+	pytest tests/test_model.py -v -s
+	pytest tests/test_pipeline.py -v -s
+
+	@echo "=== [Paso 6/X] Quality Gate y Validacion de Metricas ==="
+	python src/validate_model.py
+
+	@echo "=== [Paso 7/X] Registro de version en MLflow ==="
+	python src/manage_versions.py
+	
+	@echo "=== [Paso 8/X] Levantando Servidor de Monitoreo con Evidently ==="
+	@mkdir -p evidently_workspace
+	@nohup evidently ui \
+		--workspace ./evidently_workspace \
+		--host 0.0.0.0 \
+		--port 8000 > evidently_workspace/evidently.log 2>&1 &
+	@echo "Verificando Healthcheck del EVIDENTLY SERVER..."
+	@until python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=2)" 2>/dev/null; do \
+		sleep 1; \
+	done
+	@echo "Evidently Server activo y respondiendo correctamente."
+	@DOMAIN=$${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}; \
+	URL="https://$${CODESPACE_NAME}-8000.$${DOMAIN}"; \
+	echo "Evidently UI disponible en: $$URL"
+
+	@echo "=== [Paso 9/X] Evaluando y generando reporte de data-drift con Evidently ==="
+	python src/report_drift.py
+
+
 # ── 6. Ayuda en Consola ──────────────────────────────────────────────────────────
 help:
 	@echo ""
