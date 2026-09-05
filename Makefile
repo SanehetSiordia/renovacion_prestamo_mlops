@@ -1,6 +1,11 @@
-# Makefile — Pipeline CI/CD Local + Desarrollo (Renovacion de Prestamo)
+# Makefile — Pipeline CI/CD Local | GitHub Codespace (Renovacion de Prestamo)
 
+ifeq ($(CODESPACES),true)
+-include .env.codespaces
+else
 -include .env
+endif
+
 export
 
 .PHONY: create-dirs aws-dvc-up download-aws download-dvc dvc-push \
@@ -235,14 +240,12 @@ clean-all: clean-files
 
 
 # ── 5. Ejecucion en CodeSpace Github ──────────────────────────────────────────────────────────
-gitspaces: 
+gitspaces:
 	@echo "=== Ejecutando proyecto en CodeSpace Github ==="
-	@echo -n "Se encuentra en CodeSpace Github? [y/n]: " && read ans; \
-	if [ "$$ans" = "y" ]; then \
-		echo "Proceeding with the process..."; \
+	@if [ "$$CODESPACES" = "true" ]; then \
 		$(MAKE) install-dependencies; \
 	else \
-		echo "Process aborted."; \
+		echo "Lo sentimos, este comando solo se puede ejecutar dentro de un entorno CodeSpace de Github."; \
 		exit 1; \
 	fi
 
@@ -253,10 +256,9 @@ install-dependencies:
 	pip install --no-cache-dir --prefer-binary -r requirements/codespaces.txt
 
 	@echo "Dependencias instaladas correctamente. Se procede con la ejecucion del pipeline completo."
-	$(MAKE) all-codespaces;
+	$(MAKE) all-codespaces
 
 all-codespaces:
--include .env.codespaces
 	@echo "=== [Paso 2/X] Descargando datos desde AWS S3 versionados con DVC y Github Secrets ==="
 	@echo "Verificando credenciales de AWS..."
 	@test -n "$$AWS_ACCESS_KEY_ID" || (echo "Error: AWS_ACCESS_KEY_ID no está definida." && exit 1)
