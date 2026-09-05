@@ -279,6 +279,13 @@ all-codespaces:
 		sleep 1; \
 	done
 	@echo "MLflow Server activo y respondiendo correctamente."
+	@DOMAIN=$${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}; \
+	URL="https://$${CODESPACE_NAME}-5000.$${DOMAIN}"; \
+	echo ""; \
+	echo "================================================================="; \
+	echo " MLflow UI disponible en: $$URL"; \
+	echo "================================================================="; \
+	echo ""
 
 # ── 6. Ayuda en Consola ──────────────────────────────────────────────────────────
 help:
