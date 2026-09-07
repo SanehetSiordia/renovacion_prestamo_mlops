@@ -1,25 +1,20 @@
 services:
   dvc_aws_service:
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
       target: dvc_aws_server
     image: ${IMAGE_NAME_DVC}:${IMAGE_VERSION}
     container_name: ${DOCKER_DVC_NAME}
-    env_file:
-      - .env
     volumes:
       - ./.git:/workspace/.git
       - ./.dvc:/workspace/.dvc
       - ./data:/workspace/data
       - ./dvc.yml:/workspace/dvc.yml
-      - ./dvc.lock:/workspace/dvc.lock
-      - ./entrypoint.sh:/workspace/entrypoint.sh
     working_dir: /workspace
-    command:
-      - "/bin/sh"
-      - "-c"
-      - "chmod +x /workspace/entrypoint.sh && /workspace/entrypoint.sh && tail -f /dev/null"
+    command: tail -f /dev/null
 
   mlflow_service:
       env_file:

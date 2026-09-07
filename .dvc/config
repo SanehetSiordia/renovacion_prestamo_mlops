@@ -1,5 +1,9 @@
 [core]
     remote = s3storage
+
 ['remote "s3storage"']
     url = s3://amzn-s3-renovacion-prestamo-sinhue-000946352624-us-east-2-an
     region = us-east-2
+
+['remote "dagshub"']
+    url = https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops.dvc

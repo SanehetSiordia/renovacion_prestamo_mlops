@@ -10,7 +10,7 @@ export
 
 .PHONY: create-dirs aws-dvc-up download-aws download-dvc dvc-push \
         check-mlflow check-training check-evidently \
-        all train test validate versions report-data \
+        all train test validate versions report-data fastapi \
         gcp-service-up validate-gcp-permissions upload-gcp-models register-vertex push-fastapi-gcp all-gcp \
         down clean-files clean-all \
         gitspaces install-dependencies dvc-codespaces mlflow-codespaces evidently-codespaces all-codespaces \
@@ -76,13 +76,13 @@ download-aws: create-dirs aws-dvc-up
 
 download-dvc: create-dirs aws-dvc-up
 	@echo "=== Descargando datos desde S3 utilizando DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc pull -f -r s3storage
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc pull --force -r s3storage
 
 dvc-push: aws-dvc-up
 	@echo "=== Subiendo artefactos a S3 mediante DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc push -f -r s3storage
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc push --force -r s3storage
 	@echo "=== Verificando estado de DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc status -r s3storage
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc status
 
 # ── 2. Pipeline de CI/CD Local (Entrenamiento & Calidad) ──────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ check-evidently:
 		echo "Contenedor $(DOCKER_EVIDENTLY_NAME) listo y saludable para evaluar data drift."; \
 	fi
 
-all: download-dvc check-training train test validate versions report-data
+all: download-dvc check-training train test validate versions report-data fastapi
 	@echo "====================================================="
 	@echo "Pipeline completado. Modelo Entrenado Exportado listo para API"
 	@echo "Proceda a ejecutar 'all-gcp' para subir artefactos a GCP y registrar el modelo en Vertex AI"
@@ -156,6 +156,21 @@ versions:
 report-data: check-evidently
 	@echo "=== Evaluando y generando reporte de data-drift con Evidently ==="
 	docker exec -i $(DOCKER_EVIDENTLY_NAME) python src/report_drift.py
+
+fastapi:
+	@echo "=== Levantando contenedor de FastAPI ==="
+	docker compose -f $(COMPOSE_FILE) up -d $(FASTAPI_SERVICE_NAME)
+	@echo "=== Verificando estado del contenedor FastAPI ==="
+	@if [ -z "$$(docker compose -f $(COMPOSE_FILE) ps -q $(FASTAPI_SERVICE_NAME) 2>/dev/null)" ]; then \
+		echo "Contenedor FastAPI no disponible. Revise los logs con 'docker compose logs fastapi_service'"; \
+	else \
+		URL="http://localhost:$${PORT_LOCAL}/docs"; \
+		echo "Contenedor FastAPI levantado correctamente."; \
+		echo "================================================================="; \
+		echo " Documentacion Swagger disponible en: $$URL"; \
+		echo "================================================================="; \
+		echo ""; \
+	fi
 
 # ── 3. Integracion y Publicacion en Google Cloud Platform (GCP) ──────────────
 
@@ -251,7 +266,7 @@ gitspaces:
 	fi
 
 install-dependencies:
-	@echo "=== [Paso 1/9] Instalando dependencias en GithubSpaces ==="
+	@echo "=== [Paso 1/10] Instalando dependencias en GithubSpaces ==="
 	pip install --no-cache-dir awscli "dvc[s3]"
 	pip install --no-cache-dir mlflow
 	pip install --no-cache-dir --prefer-binary -r requirements/codespaces.txt
@@ -260,14 +275,14 @@ install-dependencies:
 	$(MAKE) all-codespaces
 
 dvc-codespaces:
-	@echo "=== [Paso 2/9] Seleccion y descarga de datos del proyecto ==="
+	@echo "=== [Paso 2/10] Seleccion y descarga de datos del proyecto ==="
 	@mkdir -p data/raw data/processed
 	@printf "Seleccione origen de datos [1- AWS S3 | 2- DAGsHub (Public Demo)] (por defecto 2): "; \
 	read origen; \
 	origen=$${origen:-2}; \
 	if [ "$$origen" = "1" ]; then \
 		echo "Intentando descargar datos desde AWS S3 vía DVC (s3storage)..."; \
-		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull -f -r s3storage; then \
+		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull; then \
 			echo "Datos descargados exitosamente desde AWS S3."; \
 		else \
 			echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."; \
@@ -284,7 +299,7 @@ dvc-codespaces:
 	fi
 
 mlflow-codespaces:
-	@echo "=== [Paso 3/9] Levantando MLFLOW SERVER en CodeSpace ==="
+	@echo "=== [Paso 3/10] Levantando MLFLOW SERVER en CodeSpace ==="
 	@mkdir -p mlruns
 	@nohup mlflow server \
 		--host 0.0.0.0 \
@@ -306,7 +321,7 @@ mlflow-codespaces:
 	echo ""
 
 evidently-codespaces:
-	@echo "=== [Paso 4/9] Levantando Servidor de Monitoreo con Evidently ==="
+	@echo "=== [Paso 4/10] Levantando Servidor de Monitoreo con Evidently ==="
 	@mkdir -p evidently_workspace
 	@nohup evidently ui \
 		--workspace ./evidently_workspace \
@@ -322,24 +337,43 @@ evidently-codespaces:
 	echo "Evidently UI disponible en: $$URL"
 
 all-codespaces: dvc-codespaces mlflow-codespaces evidently-codespaces
-	@echo "=== [Paso 5/9] Ejecutando Training de Modelos ==="
+	@echo "=== [Paso 5/10] Ejecutando Training de Modelos ==="
 	python src/manage_data.py
 	python src/train_model.py
 
-	@echo "=== [Paso 6/9] Ejecutando pruebas unitarias ==="
+	@echo "=== [Paso 6/10] Ejecutando pruebas unitarias ==="
 	pytest tests/test_data.py -v -s
 	pytest tests/test_model.py -v -s
 	pytest tests/test_pipeline.py -v -s
 
-	@echo "=== [Paso 7/9] Quality Gate y Validacion de Metricas ==="
+	@echo "=== [Paso 7/10] Quality Gate y Validacion de Metricas ==="
 	python src/validate_model.py
 
-	@echo "=== [Paso 8/9] Registro de version en MLflow ==="
+	@echo "=== [Paso 8/10] Registro de version en MLflow ==="
 	python src/manage_versions.py
 
-	@echo "=== [Paso 9/9] Evaluando y generando reporte de data-drift con Evidently ==="
+	@echo "=== [Paso 9/10] Evaluando y generando reporte de data-drift con Evidently ==="
 	python src/report_drift.py
-
+	$(MAKE) fastapi-codespaces;
+	
+fastapi-codespaces:
+	@echo "=== [Paso 10/10] Levantando Servidor FastAPI en CodeSpace ==="
+	@mkdir -p fastapi_workspace
+	@nohup uvicorn src.api:app \
+		--host 0.0.0.0 \
+		--port 8085 > fastapi_workspace/fastapi.log 2>&1 &
+	@echo "Verificando Healthcheck del FASTAPI SERVER..."
+	@until python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health', timeout=2)" 2>/dev/null; do \
+		sleep 1; \
+	done
+	@echo "FastAPI Server activo y respondiendo correctamente."
+	@DOMAIN=$${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}; \
+	URL="https://$${CODESPACE_NAME}-8085.$${DOMAIN}/docs"; \
+	echo ""; \
+	echo "================================================================="; \
+	echo " FastAPI Swagger Docs disponible en: $$URL"; \
+	echo "================================================================="; \
+	echo ""
 
 # ── 6. Ayuda en Consola ──────────────────────────────────────────────────────────
 help:
@@ -364,6 +398,7 @@ help:
 	@echo "  make validate              — Aplica el Quality Gate de metricas sobre los artefactos"
 	@echo "  make versions              — Registra el nuevo modelo y artefactos en MLflow Model Registry"
 	@echo "  make report-data           — Genera un informe de data drift con Evidently"
+	@echo "  make fastapi               — Levanta el contenedor de FastAPI para probar el modelo"
 	@echo ""
 	@echo "3. Integracion y Publicacion en Google Cloud Platform (GCP):"
 	@echo "  make gcp-service-up        — Inicia el contenedor gestor de GCP con sesion ADC de Windows"

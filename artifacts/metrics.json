@@ -43,9 +43,9 @@
         "verbosity": null
     },
     "metricas_evaluacion": {
-        "accuracy": 0.5836,
-        "f1_score": 0.1081,
-        "recall": 0.6326,
-        "roc_auc": 0.6071
+        "accuracy": 0.5627,
+        "f1_score": 0.1036,
+        "recall": 0.6336,
+        "roc_auc": 0.5967
     }
 }
