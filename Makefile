@@ -10,10 +10,11 @@ export
 
 .PHONY: create-dirs aws-dvc-up download-aws download-dvc dvc-push \
         check-mlflow check-training check-evidently \
+        all train test validate versions report-data \
         gcp-service-up validate-gcp-permissions upload-gcp-models register-vertex push-fastapi-gcp all-gcp \
-        all train test validate versions report-data\
-        dev-up dev-down dev-logs dev-logs-api dev-logs-mlflow dev-ps \
-        prod-up prod-down deploy rollback clean-files clean-all help confirm
+        down clean-files clean-all \
+        gitspaces install-dependencies dvc-codespaces mlflow-codespaces evidently-codespaces all-codespaces \
+        help confirm
 
 COMPOSE_FILE		?= compose.yml
 COMPOSE_FILE_PROD	?= compose.prod.yml
@@ -268,10 +269,10 @@ dvc-codespaces:
 		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull -f -r s3storage; then \
 			echo "Datos descargados exitosamente desde AWS S3."; \
 		else \
-			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexión)."; \
-			echo "Aplicando fallback automático: Descargando desde DAGsHub..."; \
+			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexion)."; \
+			echo "Aplicando fallback automatico: Descargando desde DAGsHub..."; \
 			dvc pull -f -r dagshub || (echo "Error critico: No se pudieron descargar los datos desde DAGsHub." && exit 1); \
-			echo "Datos descargados exitosamente vía DAGsHub."; \
+			echo "Datos descargados exitosamente via DAGsHub."; \
 		fi; \
 	else \
 		echo "Descargando datos publicos desde DAGsHub (dagshub)..."; \
@@ -344,33 +345,41 @@ help:
 	@echo "   Opciones de Automatizacion del Makefile — Pipeline MLOps Integral "
 	@echo "===================================================================="
 	@echo "1. Gestion de Datos y Versionado (AWS S3 & DVC):"
-	@echo "  make create-dirs              — Crea la estructura de carpetas locales (data/raw, data/processed)"
-	@echo "  make aws-dvc-up               — Verifica e inicia el contenedor de DVC / AWS CLI"
-	@echo "  make download-aws             — Descarga directa de archivos CSV desde AWS S3"
-	@echo "  make download-dvc             — Descarga datos versionados mediante 'dvc pull'"
-	@echo "  make dvc-push                 — Sube nuevos conjuntos de datos a S3 con 'dvc push'"
+	@echo "  make create-dirs           — Crea la estructura de carpetas locales (data/raw, data/processed)"
+	@echo "  make aws-dvc-up            — Verifica e inicia el contenedor de DVC / AWS CLI"
+	@echo "  make download-aws          — Descarga directa de archivos CSV desde AWS S3"
+	@echo "  make download-dvc          — Descarga datos versionados mediante 'dvc pull'"
+	@echo "  make dvc-push              — Sube nuevos conjuntos de datos a S3 con 'dvc push'"
 	@echo ""
 	@echo "2. Pipeline de CI/CD Local (Entrenamiento & Calidad):"
-	@echo "  make check-mlflow             — Valida o inicia el servidor de MLflow Tracking con Healthcheck"
-	@echo "  make check-training           — Valida o inicia el contenedor de entrenamiento"
-	@echo "  make check-evidently          — Valida o inicia el contenedor de evaluación de calidad de datos"
-	@echo "  make all                      — Orquesta el flujo completo: DVC -> Train -> Tests -> Validate -> Versions -> Data Drift"
-	@echo "  make train                    — Procesa datos y ejecuta el entrenamiento del modelo XGBoost"
-	@echo "  make test                     — Ejecuta pruebas unitarias de datos, modelo y pipeline (Pytest)"
-	@echo "  make validate                 — Aplica el Quality Gate de metricas sobre los artefactos"
-	@echo "  make versions                 — Registra el nuevo modelo y artefactos en MLflow Model Registry"
-	@echo "  make report-data              — Genera un informe de data drift con Evidently"
+	@echo "  make check-mlflow          — Valida o inicia el servidor de MLflow Tracking con Healthcheck"
+	@echo "  make check-training        — Valida o inicia el contenedor de entrenamiento"
+	@echo "  make check-evidently       — Valida o inicia el contenedor de evaluacion de calidad de datos"
+	@echo "  make all                   — Orquesta el flujo local: DVC -> Train -> Tests -> Validate -> Versions -> Data Drift"
+	@echo "  make train                 — Procesa datos y ejecuta el entrenamiento del modelo XGBoost"
+	@echo "  make test                  — Ejecuta pruebas unitarias de datos, modelo y pipeline (Pytest)"
+	@echo "  make validate              — Aplica el Quality Gate de metricas sobre los artefactos"
+	@echo "  make versions              — Registra el nuevo modelo y artefactos en MLflow Model Registry"
+	@echo "  make report-data           — Genera un informe de data drift con Evidently"
 	@echo ""
 	@echo "3. Integracion y Publicacion en Google Cloud Platform (GCP):"
-	@echo "  make gcp-service-up           — Inicia el contenedor gestor de GCP con sesion ADC de Windows"
+	@echo "  make gcp-service-up        — Inicia el contenedor gestor de GCP con sesion ADC de Windows"
 	@echo "  make validate-gcp-permissions — Valida permisos en GCS Bucket, Artifact Registry y Vertex AI"
-	@echo "  make upload-gcp-models        — Sube artefactos (.pkl, .skops, .json) al bucket de GCS"
-	@echo "  make register-vertex          — Registra el modelo en Vertex AI Model Registry con contenedor oficial"
-	@echo "  make push-fastapi-gcp         — Compila, etiqueta y sube la imagen Docker de FastAPI a Artifact Registry"
-	@echo "  make all-gcp                  — Exportacion integral a GCP: GCS + Vertex AI + Artifact Registry"
+	@echo "  make upload-gcp-models     — Sube artefactos (.pkl, .skops, .json) al bucket de GCS"
+	@echo "  make register-vertex       — Registra el modelo en Vertex AI Model Registry con contenedor oficial"
+	@echo "  make push-fastapi-gcp      — Compila, etiqueta y sube la imagen Docker de FastAPI a Artifact Registry"
+	@echo "  make all-gcp               — Exportacion integral a GCP: GCS + Vertex AI + Artifact Registry"
 	@echo ""
 	@echo "4. Limpieza y Mantenimiento:"
-	@echo "  make down                     — Detiene el entorno y purga volumenes de Docker Compose"
-	@echo "  make clean-files              — Elimina artefactos, temporales, caches de Python y cobertura"
-	@echo "  make clean-all                — Limpieza total: archivos + prune de imagenes y builder cache de Docker"
+	@echo "  make down                  — Detiene el entorno y purga volumenes de Docker Compose"
+	@echo "  make clean-files           — Elimina artefactos, temporales, caches de Python y cobertura"
+	@echo "  make clean-all             — Limpieza total: archivos + prune de imagenes y builder cache de Docker"
+	@echo ""
+	@echo "5. Ejecucion en GitHub Codespaces (Modo Demo Reclutador / CI-CD):"
+	@echo "  make gitspaces             — Comando de validacion de codespace y ejecucion del pipeline End-to-End"
+	@echo "  make install-dependencies  — Instala dvc[s3], mlflow y librerias de requirements/codespaces.txt"
+	@echo "  make dvc-codespaces        — Descarga interactiva de datos (AWS S3 o DAGsHub Public Remote)"
+	@echo "  make mlflow-codespaces     — Inicializa MLflow Server y expone URL"
+	@echo "  make evidently-codespaces  — Inicializa Evidently UI expone URL de monitoreo"
+	@echo "  make all-codespaces        — Ejecuta el pipeline dentro de Codespaces"
 	@echo "===================================================================="
