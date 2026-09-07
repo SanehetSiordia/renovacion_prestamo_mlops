@@ -1,6 +1,6 @@
 stages:
   download_data:
-    cmd: make download-data
+    cmd: make download-dvc
     deps:
       - Makefile
     outs:

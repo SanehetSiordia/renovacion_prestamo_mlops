@@ -75,13 +75,13 @@ download-aws: create-dirs aws-dvc-up
 
 download-dvc: create-dirs aws-dvc-up
 	@echo "=== Descargando datos desde S3 utilizando DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc pull --force
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc pull -f -r s3storage
 
 dvc-push: aws-dvc-up
 	@echo "=== Subiendo artefactos a S3 mediante DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc push
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc push -f -r s3storage
 	@echo "=== Verificando estado de DVC ==="
-	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc status
+	docker compose -f $(COMPOSE_FILE) exec $(DVC_AWS_SERVICE_NAME) dvc status -r s3storage
 
 # ── 2. Pipeline de CI/CD Local (Entrenamiento & Calidad) ──────────────────────────────────────────────────────
 
@@ -250,7 +250,7 @@ gitspaces:
 	fi
 
 install-dependencies:
-	@echo "=== [Paso 1/X] Instalando dependencias en GithubSpaces ==="
+	@echo "=== [Paso 1/9] Instalando dependencias en GithubSpaces ==="
 	pip install --no-cache-dir awscli "dvc[s3]"
 	pip install --no-cache-dir mlflow
 	pip install --no-cache-dir --prefer-binary -r requirements/codespaces.txt
@@ -258,15 +258,28 @@ install-dependencies:
 	@echo "Dependencias instaladas correctamente. Se procede con la ejecucion del pipeline completo."
 	$(MAKE) all-codespaces
 
-all-codespaces:
-	@echo "=== [Paso 2/X] Descargando datos desde AWS S3 versionados con DVC y Github Secrets ==="
-	@echo "Verificando credenciales de AWS..."
-	@test -n "$$AWS_ACCESS_KEY_ID" || (echo "Error: AWS_ACCESS_KEY_ID no está definida." && exit 1)
-	@test -n "$$AWS_SECRET_ACCESS_KEY" || (echo "Error: AWS_SECRET_ACCESS_KEY no está definida." && exit 1)
-	@echo "Descargando datos desde S3..."
-	dvc pull --force
+dvc-codespaces:
+	@echo "=== [Paso 2/9] Seleccion y descarga de datos versionados con DVC ==="
+	@read -p "Seleccione origen de datos [1- AWS S3 | 2- DAGsHub (Public Demo)] (por defecto 2): "origen; \
+	origen=$${origen:-2}; \
+	if [ "$$origen" = "1" ]; then \
+		echo "Intentando descargar datos desde AWS S3 (s3storage)..."; \
+		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull -f -r s3storage; then \
+			echo "Datos descargados exitosamente desde AWS S3."; \
+		else \
+			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexión)."; \
+			echo "Aplicando fallback automático: Descargando desde DAGsHub..."; \
+			dvc pull -f -r dagshub || (echo "Error critico: No se pudieron descargar los datos desde DAGsHub." && exit 1); \
+			echo "Datos descargados exitosamente vía DAGsHub."; \
+		fi; \
+	else \
+		echo "Descargando datos publicos desde DAGsHub (dagshub)..."; \
+		dvc pull -f -r dagshub || (echo "Error critico: No se pudieron descargar los datos desde DAGsHub." && exit 1); \
+		echo "Datos descargados exitosamente via DAGsHub."; \
+	fi
 
-	@echo "=== [Paso 3/X] Levantando MLFLOW SERVER en CodeSpace ==="
+mlflow-codespaces:
+	@echo "=== [Paso 3/9] Levantando MLFLOW SERVER en CodeSpace ==="
 	@mkdir -p mlruns
 	@nohup mlflow server \
 		--host 0.0.0.0 \
@@ -287,23 +300,8 @@ all-codespaces:
 	echo "================================================================="; \
 	echo ""
 
-	
-	@echo "=== [Paso 4/X] Ejecutando Training de Modelos ==="
-	python src/manage_data.py
-	python src/train_model.py
-
-	@echo "=== [Paso 5/X] Ejecutando pruebas unitarias ==="
-	pytest tests/test_data.py -v -s
-	pytest tests/test_model.py -v -s
-	pytest tests/test_pipeline.py -v -s
-
-	@echo "=== [Paso 6/X] Quality Gate y Validacion de Metricas ==="
-	python src/validate_model.py
-
-	@echo "=== [Paso 7/X] Registro de version en MLflow ==="
-	python src/manage_versions.py
-	
-	@echo "=== [Paso 8/X] Levantando Servidor de Monitoreo con Evidently ==="
+evidently-codespaces:
+	@echo "=== [Paso 4/9] Levantando Servidor de Monitoreo con Evidently ==="
 	@mkdir -p evidently_workspace
 	@nohup evidently ui \
 		--workspace ./evidently_workspace \
@@ -318,7 +316,23 @@ all-codespaces:
 	URL="https://$${CODESPACE_NAME}-8000.$${DOMAIN}"; \
 	echo "Evidently UI disponible en: $$URL"
 
-	@echo "=== [Paso 9/X] Evaluando y generando reporte de data-drift con Evidently ==="
+all-codespaces: dvc-codespaces mlflow-codespaces evidently-codespaces
+	@echo "=== [Paso 5/9] Ejecutando Training de Modelos ==="
+	python src/manage_data.py
+	python src/train_model.py
+
+	@echo "=== [Paso 6/9] Ejecutando pruebas unitarias ==="
+	pytest tests/test_data.py -v -s
+	pytest tests/test_model.py -v -s
+	pytest tests/test_pipeline.py -v -s
+
+	@echo "=== [Paso 7/9] Quality Gate y Validacion de Metricas ==="
+	python src/validate_model.py
+
+	@echo "=== [Paso 8/9] Registro de version en MLflow ==="
+	python src/manage_versions.py
+
+	@echo "=== [Paso 9/9] Evaluando y generando reporte de data-drift con Evidently ==="
 	python src/report_drift.py
 
 
