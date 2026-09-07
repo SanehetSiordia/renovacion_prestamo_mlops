@@ -260,7 +260,8 @@ install-dependencies:
 
 dvc-codespaces:
 	@echo "=== [Paso 2/9] Seleccion y descarga de datos versionados con DVC ==="
-	@read -p "Seleccione origen de datos [1- AWS S3 | 2- DAGsHub (Public Demo)] (por defecto 2): "origen; \
+	@printf "Seleccione origen de datos [1- AWS S3 | 2- DAGsHub (Public Demo)] (por defecto 2): "; \
+	read origen; \
 	origen=$${origen:-2}; \
 	if [ "$$origen" = "1" ]; then \
 		echo "Intentando descargar datos desde AWS S3 (s3storage)..."; \
