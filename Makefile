@@ -355,16 +355,16 @@ all-codespaces: dvc-codespaces mlflow-codespaces evidently-codespaces
 	@echo "=== [Paso 9/10] Evaluando y generando reporte de data-drift con Evidently ==="
 	python src/report_drift.py
 	$(MAKE) fastapi-codespaces;
-	
+
 fastapi-codespaces:
 	@echo "=== [Paso 10/10] Levantando Servidor FastAPI en CodeSpace ==="
 	@mkdir -p fastapi_workspace
-	@nohup uvicorn src.api:app \
+	@nohup uvicorn api.app:app \
 		--host 0.0.0.0 \
 		--port 8085 > fastapi_workspace/fastapi.log 2>&1 &
 	@echo "Verificando Healthcheck del FASTAPI SERVER..."
-	@until python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health', timeout=2)" 2>/dev/null; do \
-		sleep 1; \
+	@until curl -s -f -m 0.5 http://127.0.0.1:8085/health >/dev/null 2>&1; do \
+		sleep 0.1; \
 	done
 	@echo "FastAPI Server activo y respondiendo correctamente."
 	@DOMAIN=$${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}; \
