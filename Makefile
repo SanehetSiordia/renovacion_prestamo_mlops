@@ -260,32 +260,27 @@ install-dependencies:
 	$(MAKE) all-codespaces
 
 dvc-codespaces:
-	@echo "=== [Paso 2/9] Seleccion y descarga de datos versionados con DVC ==="
+	@echo "=== [Paso 2/9] Seleccion y descarga de datos del proyecto ==="
+	@mkdir -p data/raw data/processed
 	@printf "Seleccione origen de datos [1- AWS S3 | 2- DAGsHub (Public Demo)] (por defecto 2): "; \
 	read origen; \
 	origen=$${origen:-2}; \
 	if [ "$$origen" = "1" ]; then \
-		echo "Intentando descargar datos desde AWS S3 (s3storage)..."; \
+		echo "Intentando descargar datos desde AWS S3 vía DVC (s3storage)..."; \
 		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull -f -r s3storage; then \
 			echo "Datos descargados exitosamente desde AWS S3."; \
 		else \
-			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexión)."; \
-			echo "Aplicando fallback automático: Descargando desde DAGsHub..."; \
-			if dvc pull -f -r dagshub; then \
-				echo "Datos descargados exitosamente vía DAGsHub."; \
-			else \
-				echo "Error critico: No se pudieron descargar los datos desde DAGsHub."; \
-				exit 1; \
-			fi; \
+			echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."; \
+			echo "Aplicando fallback automático: Descargando vía DAGsHub Public Raw Data..."; \
+			curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/raw/raw_renovacion_prestamo.csv" -o data/raw/raw_renovacion_prestamo.csv && \
+			curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/processed/processed_renovacion_prestamo.csv" -o data/processed/processed_renovacion_prestamo.csv || (echo "Error crítico: Falló la descarga de datos." && exit 1); \
+			echo "Datos descargados exitosamente vía DAGsHub."; \
 		fi; \
 	else \
-		echo "Descargando datos publicos desde DAGsHub (dagshub)..."; \
-		if dvc pull -f -r dagshub; then \
-			echo "Datos descargados exitosamente via DAGsHub."; \
-		else \
-			echo "Error critico: No se pudieron descargar los datos desde DAGsHub."; \
-			exit 1; \
-		fi; \
+		echo "Descargando datos públicos desde DAGsHub (Public Raw Data)..."; \
+		curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/raw/raw_renovacion_prestamo.csv" -o data/raw/raw_renovacion_prestamo.csv && \
+		curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/processed/processed_renovacion_prestamo.csv" -o data/processed/processed_renovacion_prestamo.csv || (echo "Error crítico: Falló la descarga de datos." && exit 1); \
+		echo "Datos descargados exitosamente vía DAGsHub."; \
 	fi
 
 mlflow-codespaces:
