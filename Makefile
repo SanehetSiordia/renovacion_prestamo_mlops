@@ -269,15 +269,23 @@ dvc-codespaces:
 		if [ -n "$$AWS_ACCESS_KEY_ID" ] && [ -n "$$AWS_SECRET_ACCESS_KEY" ] && dvc pull -f -r s3storage; then \
 			echo "Datos descargados exitosamente desde AWS S3."; \
 		else \
-			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexion)."; \
-			echo "Aplicando fallback automatico: Descargando desde DAGsHub..."; \
-			dvc pull -f -r dagshub || (echo "Error critico: No se pudieron descargar los datos desde DAGsHub." && exit 1); \
-			echo "Datos descargados exitosamente via DAGsHub."; \
+			echo "ADVERTENCIA: Fallo la descarga desde AWS S3 (credenciales faltantes o error de conexión)."; \
+			echo "Aplicando fallback automático: Descargando desde DAGsHub..."; \
+			if dvc pull -f -r dagshub; then \
+				echo "Datos descargados exitosamente vía DAGsHub."; \
+			else \
+				echo "Error critico: No se pudieron descargar los datos desde DAGsHub."; \
+				exit 1; \
+			fi; \
 		fi; \
 	else \
 		echo "Descargando datos publicos desde DAGsHub (dagshub)..."; \
-		dvc pull -f -r dagshub || (echo "Error critico: No se pudieron descargar los datos desde DAGsHub." && exit 1); \
-		echo "Datos descargados exitosamente via DAGsHub."; \
+		if dvc pull -f -r dagshub; then \
+			echo "Datos descargados exitosamente via DAGsHub."; \
+		else \
+			echo "Error critico: No se pudieron descargar los datos desde DAGsHub."; \
+			exit 1; \
+		fi; \
 	fi
 
 mlflow-codespaces:
