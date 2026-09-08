@@ -33,6 +33,13 @@ Proyecto integral de **MLOPs End-To-End** diseñado para predecir la propensión
 
 ## ⚙️ Requisitos Previos
 
+### Entorno GitHub Codespaces
+- Cuenta GitHub
+- Crea tu entorno github codespaces aquí: 
+- [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/SanehetSiordia/renovacion_prestamo_mlops) 
+- Ejecutar comando **make gitspaces**
+
+### Entorno Local
 - Cuenta GitHub
 - Docker
 - Make
