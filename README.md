@@ -39,7 +39,12 @@ Proyecto integral de **MLOPs End-To-End** diseñado para predecir la propensión
 - [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/SanehetSiordia/renovacion_prestamo_mlops) 
 - Ejecutar comando **make gitspaces** en la terminal
 - Seleccionar origen de descarga de los datos 
--   1: AWS S3 (se requieren secrets)
+-   1: AWS S3 (se requieren ACCESS KEY con github secrets)
+-   2: DAGshub
+- Visualizar resultados en el apartado de **_Ports_**
+-   PORT 5000: MLFLOW Tracking
+-   PORT 8000: Evidently Monitoring
+-   PORT 8085: FASTAPI del modelo
 
 
 ## ⚙️ Requisitos Previos Entorno Local
