@@ -31,13 +31,18 @@ Proyecto integral de **MLOPs End-To-End** diseñado para predecir la propensión
 
 ---
 
-## ⚙️ Requisitos Previos
+## ⚙️ Requisitos Previos Entorno Codespaces
 
 ### Entorno GitHub Codespaces
 - Cuenta GitHub
 - Crea tu entorno github codespaces aquí: 
 - [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/SanehetSiordia/renovacion_prestamo_mlops) 
-- Ejecutar comando **make gitspaces**
+- Ejecutar comando **make gitspaces** en la terminal
+- Seleccionar origen de descarga de los datos 
+-   1: AWS S3 (se requieren secrets)
+
+
+## ⚙️ Requisitos Previos Entorno Local
 
 ### Entorno Local
 - Cuenta GitHub
