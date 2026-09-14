@@ -49,12 +49,19 @@ jobs:
         
           - name: Paso 2 Descargar datos de S3
             run: |
-                mkdir -p data/raw data/processed
-                if [ -n $AWS_ACCESS_KEY_ID ] && [ -n $AWS_SECRET_ACCESS_KEY] && dvc pull; then
-                    echo "Datos descargados exitosamente desde AWS S3.";
-                else: 
-                    echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."
-                fi
+              mkdir -p data/raw data/processed
+              if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && dvc pull; then
+                echo "Datos descargados exitosamente desde AWS S3."
+              else
+                echo "ADVERTENCIA: Credenciales ausentes o falló DVC pull."
+                echo "Descargando dataset público desde DAGsHub..."
+                curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/raw/raw_renovacion_prestamo.csv" -o data/raw/raw_renovacion_prestamo.csv
+                curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/processed/processed_renovacion_prestamo.csv" -o data/processed/processed_renovacion_prestamo.csv
+                echo "Archivos descargados correctamente."
+              fi
+              
+              test -f data/raw/raw_renovacion_prestamo.csv || { echo "Error: raw_renovacion_prestamo.csv no existe"; exit 1; }
+              test -f data/processed/processed_renovacion_prestamo.csv || { echo "Error: processed_renovacion_prestamo.csv no existe"; exit 1; }
 
           - name: Paso 3 Levantar MLflow Server
             run: |
