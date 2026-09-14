@@ -25,6 +25,8 @@ env:
 jobs:
     build-and-test:
         name: Run MLOps Pipeline
+        env:
+            ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
         runs-on: ubuntu-latest
         steps:
           - name: Checkout del Codigo
@@ -49,6 +51,7 @@ jobs:
                     echo "Datos descargados exitosamente desde AWS S3.";
                 else: 
                     echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."
+                fi
 
           - name: Paso 3 Levantar MLflow Server
             run: |
