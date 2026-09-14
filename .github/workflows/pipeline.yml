@@ -1,5 +1,114 @@
 # .github/workflows/pipeline.yml
 # CI/CD Pipeline — MLOps Renovacion de Prestamo Sinhue
-# Se activa con: push a main o pull_request a main
+name: MLOps Pipeline CI/CD
 
-#name: ML Pipeline CI/CD
+on:
+    push:
+        branches:
+            - main
+            - feature.*
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:
+
+env:
+    IMAGE_NAME_FASTAPI: ${{ vars.IMAGE_NAME_FASTAPI }}
+    DOCKER_FASTAPI_NAME: ${{ vars.DOCKER_FASTAPI_NAME }}
+    MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+    MLFLOW_EXPERIMENT: ${{ vars.MLFLOW_EXPERIMENT }}
+    EVIDENTLY_TRACKING_URI: ${{ vars.EVIDENTLY_TRACKING_URI }}
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+    build-and-test:
+        name: Run MLOps Pipeline
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout del Codigo
+            uses: actions/checkout@v4
+
+          - name: Configurar Python
+            uses: actions/setup-python@v5
+            with:
+                python-version: '3.12'
+                cache: 'pip'
+
+          - name: Paso 1 Instalar dependencias
+            run: |
+                pip install --no-cache-dir awscli "dvc[s3]" mlflow
+                pip install --no-cache-dir --prefer-binary -r requirements/codespaces.txt
+        
+          - name: Paso 2 Descargar datos de S3
+            run: |
+                mkdir -p data/raw data/processed
+                if [ -n $AWS_ACCESS_KEY_ID ] && [ -n $AWS_SECRET_ACCESS_KEY] && dvc pull; then
+                    echo "Datos descargados exitosamente desde AWS S3.";
+                else: 
+                    echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."
+
+          - name: Paso 3 Levantar MLflow Server
+            run: |
+                mkdir -p mlruns
+                nohup mlflow server
+                    --host 0.0.0.0
+                    --port 5000
+                    --backend-store-uri sqlite:///mlruns/mlflow.db
+                    --default-artifact-root ./mlruns
+                    --allowed-hosts "*" > mlruns/mlflow.log 2>&1 &
+                echo "Verificando Healthcheck del MLFLOW SERVER..."
+                until python3 -c "import urllib.request; urllib.request.urlopen('$MLFLOW_TRACKING_URI/health', timeout=2)" 2>/dev/null; do
+                    echo "Esperando a que el MLFLOW SERVER esté disponible..."
+                    sleep 1
+                done
+                echo "MLflow Server activo y respondiendo correctamente."
+
+
+          - name: Paso 4 mkdir -p evidently_workspace
+            run: |
+                mkdir -p mlruns
+                nohup evidently ui
+                    --workspace ./evidently_workspace
+                    --host 0.0.0.0
+                    --port 8000 > evidently_workspace/evidently.log 2>&1 &
+                echo "Verificando Healthcheck del EVIDENTLY SERVER..."
+                until python3 -c "import urllib.request; urllib.request.urlopen('$EVIDENTLY_TRACKING_URI/', timeout=2)" 2>/dev/null; do
+                    echo "Esperando a que el EVIDENTLY SERVER esté disponible..."
+                    sleep 1
+                done
+                echo "Evidently Server activo y respondiendo correctamente."
+
+          - name: Paso 5 Ejecutando Training de Modelos
+            env:
+                MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+                MLFLOW_EXPERIMENT: ${{ vars.MLFLOW_EXPERIMENT }}
+            run: |
+                python src/manage_data.py
+                python src/train_model.py
+
+          - name: Paso 6 Ejecutando pruebas unitarias
+            run: |
+                pytest tests/test_data.py -v -s
+                pytest tests/test_model.py -v -s
+                pytest tests/test_pipeline.py -v -s
+
+          - name: Paso 7 Quality Gate y Validacion de Metricas
+            env:
+                MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+                MLFLOW_EXPERIMENT: ${{ vars.MLFLOW_EXPERIMENT }}
+            run: |
+                python src/validate_model.py
+
+          - name: Paso 8 Registro de Modelo en MLflow
+            env:
+                MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+                MLFLOW_EXPERIMENT: ${{ vars.MLFLOW_EXPERIMENT }}
+            run: |
+                python src/manage_versions.py
+
+          - name: Paso 9 Evaluando y generando reporte de data-drift con Evidently
+            env:
+                EVIDENTLY_TRACKING_URI: ${{ vars.EVIDENTLY_TRACKING_URI }}
+            run: |
+                python src/report_drift.py
