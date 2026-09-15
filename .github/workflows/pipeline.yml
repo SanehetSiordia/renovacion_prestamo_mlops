@@ -6,12 +6,16 @@ on:
     push:
         branches:
             - main
-            - feature.*
+            - feature_*
     pull_request:
         branches:
             - main
+            - feature_*
     workflow_dispatch:
-
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+    
 env:
     IMAGE_NAME_FASTAPI: ${{ vars.IMAGE_NAME_FASTAPI }}
     DOCKER_FASTAPI_NAME: ${{ vars.DOCKER_FASTAPI_NAME }}
@@ -26,14 +30,15 @@ jobs:
         name: Run MLOps Pipeline
         runs-on: ubuntu-latest
         steps:
-          - name: Checkout del Codigo
-            uses: actions/checkout@v4
+          - name: Checkout code
+            uses: actions/checkout@v7.0.1
 
-          - name: Configurar Python
-            uses: actions/setup-python@v5
+          - name: Setup Python
+            uses: actions/setup-python@v7.0.0
             with:
                 python-version: '3.12'
                 cache: 'pip'
+                cache-dependency-path: 'requirements/*.txt'
 
           - name: Paso 1 Instalar dependencias
             run: |
@@ -42,20 +47,28 @@ jobs:
         
           - name: Paso 2 Descargar datos de S3
             run: |
-                mkdir -p data/raw data/processed
-                if [ -n $AWS_ACCESS_KEY_ID ] && [ -n $AWS_SECRET_ACCESS_KEY] && dvc pull; then
-                    echo "Datos descargados exitosamente desde AWS S3.";
-                else: 
-                    echo "ADVERTENCIA: Falló la descarga desde AWS S3 (credenciales ausentes o error de red)."
+              mkdir -p data/raw data/processed
+              if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && dvc pull; then
+                echo "Datos descargados exitosamente desde AWS S3."
+              else
+                echo "ADVERTENCIA: Credenciales ausentes o falló DVC pull."
+                echo "Descargando dataset público desde DAGsHub..."
+                curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/raw/raw_renovacion_prestamo.csv" -o data/raw/raw_renovacion_prestamo.csv
+                curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/processed/processed_renovacion_prestamo.csv" -o data/processed/processed_renovacion_prestamo.csv
+                echo "Archivos descargados correctamente."
+              fi
+
+              test -f data/raw/raw_renovacion_prestamo.csv || { echo "Error: raw_renovacion_prestamo.csv no existe"; exit 1; }
+              test -f data/processed/processed_renovacion_prestamo.csv || { echo "Error: processed_renovacion_prestamo.csv no existe"; exit 1; }
 
           - name: Paso 3 Levantar MLflow Server
             run: |
                 mkdir -p mlruns
-                nohup mlflow server
-                    --host 0.0.0.0
-                    --port 5000
-                    --backend-store-uri sqlite:///mlruns/mlflow.db
-                    --default-artifact-root ./mlruns
+                nohup mlflow server \
+                    --host 0.0.0.0 \
+                    --port 5000 \
+                    --backend-store-uri sqlite:///mlruns/mlflow.db \
+                    --default-artifact-root ./mlruns \
                     --allowed-hosts "*" > mlruns/mlflow.log 2>&1 &
                 echo "Verificando Healthcheck del MLFLOW SERVER..."
                 until python3 -c "import urllib.request; urllib.request.urlopen('$MLFLOW_TRACKING_URI/health', timeout=2)" 2>/dev/null; do
@@ -65,12 +78,12 @@ jobs:
                 echo "MLflow Server activo y respondiendo correctamente."
 
 
-          - name: Paso 4 mkdir -p evidently_workspace
+          - name: Paso 4 Levantando Servidor de Monitoreo con Evidently
             run: |
-                mkdir -p mlruns
-                nohup evidently ui
-                    --workspace ./evidently_workspace
-                    --host 0.0.0.0
+                mkdir -p evidently_workspace
+                nohup evidently ui \
+                    --workspace ./evidently_workspace \
+                    --host 0.0.0.0 \
                     --port 8000 > evidently_workspace/evidently.log 2>&1 &
                 echo "Verificando Healthcheck del EVIDENTLY SERVER..."
                 until python3 -c "import urllib.request; urllib.request.urlopen('$EVIDENTLY_TRACKING_URI/', timeout=2)" 2>/dev/null; do
