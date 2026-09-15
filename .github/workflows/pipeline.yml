@@ -28,15 +28,13 @@ env:
 jobs:
     build-and-test:
         name: Run MLOps Pipeline
-        env:
-            ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
         runs-on: ubuntu-latest
         steps:
-          - name: Checkout del Codigo
-            uses: actions/checkout@v4
+          - name: Checkout code
+            uses: actions/checkout@v7.0.1
 
-          - name: Configurar Python
-            uses: actions/setup-python@v5
+          - name: Setup Python
+            uses: actions/setup-python@v7.0.0
             with:
                 python-version: '3.12'
                 cache: 'pip'
@@ -59,7 +57,7 @@ jobs:
                 curl -s -L -f "https://dagshub.com/SanehetSiordia/renovacion_prestamo_mlops/raw/main/data/processed/processed_renovacion_prestamo.csv" -o data/processed/processed_renovacion_prestamo.csv
                 echo "Archivos descargados correctamente."
               fi
-              
+
               test -f data/raw/raw_renovacion_prestamo.csv || { echo "Error: raw_renovacion_prestamo.csv no existe"; exit 1; }
               test -f data/processed/processed_renovacion_prestamo.csv || { echo "Error: processed_renovacion_prestamo.csv no existe"; exit 1; }
 
