@@ -7,6 +7,7 @@ on:
         branches:
             - main
             - feature_*
+            - task_*
     pull_request:
         branches:
             - main
@@ -157,10 +158,34 @@ jobs:
                   exit 1
                 fi
 
+          - name: Validar acceso a recursos de Google Cloud
+            shell: bash
+            run: |
+                echo "Validando acceso al bucket de modelos..."
+                gcloud storage ls \
+                  gs://renovacion-prestamo-models-379103785237/models/
+
+                echo "Validando acceso a Artifact Registry..."
+                gcloud artifacts repositories describe \
+                  renovacion-prestamo-artifacts-379103785237 \
+                  --project=renovacion-prestamo \
+                  --location=us-west1 \
+                  --format="value(name)"
+
+                echo "Validando acceso a Vertex AI Model Registry..."
+                gcloud ai models list \
+                  --project=renovacion-prestamo \
+                  --region=us-west1 \
+                  --limit=1 \
+                  --format="value(name)"
+
+                echo "Autenticacion y permisos de lectura en Google Cloud validados exitosamente."
+
           - name: Informar omision de autenticacion en PR
             if: github.event_name == 'pull_request'
             run: |
-                echo "Autenticacion con Google Cloud omitida: ejecucion de pull_request."
+                echo "Autenticacion con Google Cloud omitida: esta ejecucion corresponde a un pull request."
+                echo "La autenticacion se validara despues del merge, durante el evento push sobre la rama destino: ${{ github.base_ref }}."
 
           - name: Paso 11 Finalizando Servidores
             run: |
