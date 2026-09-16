@@ -425,6 +425,9 @@ def exportar_modelo_resultados(modelo: ClassifierMixin, datos_json: dict) -> Non
         modelo.get_booster().save_model(C.MODEL_JSON_PATH)
         log.info(f"Modelo XGBoost guardado nativamente en JSON en: {C.MODEL_JSON_PATH}")
 
+        modelo.get_booster().save_model(C.MODEL_BST_PATH)
+        log.info(f"Modelo XGBoost guardado en BST en: {C.MODEL_BST_PATH}")
+
 
 # ── Función principal ─────────────────────────────────────────────────────
 

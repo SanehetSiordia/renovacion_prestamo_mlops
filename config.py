@@ -30,6 +30,7 @@ JSON_DRIFT_PATH = REPORTS_DIR / 'reporte_drift_renovacion.json'
 MODEL_PKL_PATH = ARTIFACTS_DIR / 'model.pkl'
 MODEL_SKOPS_PATH = ARTIFACTS_DIR / 'model.skops'
 MODEL_JSON_PATH = ARTIFACTS_DIR / 'model.json'
+MODEL_BST_PATH = ARTIFACTS_DIR / 'model.bst'
 METRICS_PATH = ARTIFACTS_DIR / 'metrics.json'
 
 # ── Columnas  para Preprocesamiento ────────────────────────────────────────────────

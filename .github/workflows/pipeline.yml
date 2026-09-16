@@ -18,15 +18,35 @@ concurrency:
     cancel-in-progress: true
     
 env:
+    IMAGE_VERSION: "1.0.0"
+    APP_VERSION: "1.0.0"
+    PORT_REMOTE: "8000"
+
     IMAGE_NAME_FASTAPI: ${{ vars.IMAGE_NAME_FASTAPI }}
     DOCKER_FASTAPI_NAME: ${{ vars.DOCKER_FASTAPI_NAME }}
     MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
     MLFLOW_EXPERIMENT: ${{ vars.MLFLOW_EXPERIMENT }}
     EVIDENTLY_TRACKING_URI: ${{ vars.EVIDENTLY_TRACKING_URI }}
+
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
     GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
     GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+    GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+    GCP_DEFAULT_REGION: ${{ vars.GCP_DEFAULT_REGION }}
+    GCP_BUCKET: ${{ vars.GCP_BUCKET }}
+    GCP_DESTINATION: ${{ vars.GCP_DESTINATION }}
+    GCP_ARTIFACT_REGISTRY: ${{ vars.GCP_ARTIFACT_REGISTRY }}
+    GCP_ARTIFACT_REGISTRY_URI: ${{ vars.GCP_ARTIFACT_REGISTRY_URI }}
+    GCP_CONTAINER_IMAGE_URI: ${{ vars.GCP_CONTAINER_IMAGE_URI }}
+
+    GCP_MODEL_DIR: artifacts
+    GCP_MODEL_PKL_NAME: model.pkl
+    GCP_MODEL_SKOPS_NAME: model.skops
+    GCP_MODEL_JSON_NAME: model.json
+    GCP_MODEL_BST_NAME: model.bst
+    MODEL_NAME: RenovacionPrestamo
 
 permissions:
   contents: read
@@ -138,7 +158,7 @@ jobs:
             if: github.event_name != 'pull_request'
             uses: google-github-actions/auth@v3
             with:
-                project_id: renovacion-prestamo
+                project_id: ${{ vars.GCP_PROJECT_ID }}
                 workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
                 service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
                 create_credentials_file: true
@@ -163,19 +183,19 @@ jobs:
             run: |
                 echo "Validando acceso al bucket de modelos..."
                 gcloud storage ls \
-                  gs://renovacion-prestamo-models-379103785237/models/
+                  $GCP_DESTINATION/
 
                 echo "Validando acceso a Artifact Registry..."
                 gcloud artifacts repositories describe \
-                  renovacion-prestamo-artifacts-379103785237 \
-                  --project=renovacion-prestamo \
-                  --location=us-west1 \
+                  $GCP_ARTIFACT_REGISTRY \
+                  --project=$GCP_PROJECT_ID \
+                  --location=$GCP_DEFAULT_REGION \
                   --format="value(name)"
 
                 echo "Validando acceso a Vertex AI Model Registry..."
                 gcloud ai models list \
-                  --project=renovacion-prestamo \
-                  --region=us-west1 \
+                  --project=$GCP_PROJECT_ID \
+                  --region=$GCP_DEFAULT_REGION \
                   --limit=1 \
                   --format="value(name)"
 
