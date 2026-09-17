@@ -206,8 +206,41 @@ jobs:
             run: |
                 echo "Autenticacion con Google Cloud omitida: esta ejecucion corresponde a un pull request."
                 echo "La autenticacion se validara despues del merge, durante el evento push sobre la rama destino: ${{ github.base_ref }}."
+          
 
-          - name: Paso 11 Finalizando Servidores
+# set Eeuo pipefail: errexit, nounset, errtrace, pipefail
+# Bash en modo estricto para asegurar que errores silenciosos no pasen desapercibidos.
+          - name: Validar artefactos para publicacion
+            if: github.event_name != 'pull_request'
+            shell: bash
+            run: |
+                for model_file in \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_PKL_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_SKOPS_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_JSON_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_BST_NAME"
+                do
+                  if [ ! -s "$model_file" ]; then
+                    echo "::error::El artefacto no existe o esta vacio: $model_file"
+                    exit 1
+                  fi
+                done
+                echo "Artefactos del modelo validados correctamente."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          - name: Paso 12 Finalizando Servidores
             run: |
                 echo "Finalizando MLflow Server..."
                 pkill -f "mlflow server" || echo "MLflow Server no estaba corriendo."

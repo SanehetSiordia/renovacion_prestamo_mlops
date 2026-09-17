@@ -59,11 +59,13 @@ MANIFEST
 *.h5
 #*.pkl
 *.skops
+*.bst
 *.pth
 *.onnx
 model.json
 model.pkl
 model.skops
+model.bst
 
 # DVC local state and cache
 .dvc/config.local
