@@ -46,7 +46,7 @@ env:
     GCP_MODEL_SKOPS_NAME: model.skops
     GCP_MODEL_JSON_NAME: model.json
     GCP_MODEL_BST_NAME: model.bst
-    MODEL_NAME: RenovacionPrestamo
+    MODEL_NAME: RenovacionPrestamoCICD
 
 permissions:
   contents: read
@@ -153,7 +153,24 @@ jobs:
             run: |
                 python src/report_drift.py
 
-          - name: Paso 10 Authenticate to Google Cloud
+# Buildkit permite construir imágenes Docker de manera más eficiente y con soporte para múltiples etapas.
+# Imagen Docker multi-stage para el servidor FastAPI (target=fastapi_server).
+          - name: Paso 11 Construir imagen Docker de FastAPI
+            shell: bash
+            env:
+                DOCKER_BUILDKIT: "1"
+            run: |
+                LOCAL_IMAGE="$IMAGE_NAME_FASTAPI:$IMAGE_VERSION"
+                docker build \
+                  --target fastapi_server \
+                  --build-arg APP_VERSION="$APP_VERSION" \
+                  --build-arg PORT_REMOTE="$PORT_REMOTE" \
+                  --tag "$LOCAL_IMAGE" \
+                  .
+                docker image inspect "$LOCAL_IMAGE" > /dev/null
+                echo "Imagen FastAPI construida correctamente: $LOCAL_IMAGE"
+
+          - name: Paso 12 Validar y Autentificar con Google Cloud
             id: gcp-auth
             if: github.event_name != 'pull_request'
             uses: google-github-actions/auth@v3
@@ -201,15 +218,17 @@ jobs:
 
                 echo "Autenticacion y permisos de lectura en Google Cloud validados exitosamente."
 
-          - name: Informar omision de autenticacion en PR
-            if: github.event_name == 'pull_request'
+# --quiet: Evita que gcloud solicite confirmaciones interactivas durante la ejecucion de comandos.
+          - name: Autenticar Docker con Artifact Registry
+            if: github.event_name != 'pull_request'
+            shell: bash
             run: |
-                echo "Autenticacion con Google Cloud omitida: esta ejecucion corresponde a un pull request."
-                echo "La autenticacion se validara despues del merge, durante el evento push sobre la rama destino: ${{ github.base_ref }}."
-          
+                gcloud auth configure-docker \
+                  "$GCP_DEFAULT_REGION-docker.pkg.dev" \
+                  --quiet
+                echo "Docker autenticado correctamente con Artifact Registry."
 
-# set Eeuo pipefail: errexit, nounset, errtrace, pipefail
-# Bash en modo estricto para asegurar que errores silenciosos no pasen desapercibidos.
+#GITHUB_SHA: El hash completo del commit actual en GitHub Actions.
           - name: Validar artefactos para publicacion
             if: github.event_name != 'pull_request'
             shell: bash
@@ -225,22 +244,126 @@ jobs:
                     exit 1
                   fi
                 done
+
+                SHORT_SHA="${GITHUB_SHA::12}"
+
+                echo ">> = Anexion de variables SHORT_SHA, GCP_RELEASE_DESTINATION y GCP_VERTEX_DESTINATION al entorno de GitHub Actions."
+                echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+                echo "GCP_RELEASE_DESTINATION=$GCP_DESTINATION/releases/$GITHUB_SHA" >> "$GITHUB_ENV"
+                echo "GCP_VERTEX_DESTINATION=$GCP_DESTINATION/vertex/$GITHUB_SHA" >> "$GITHUB_ENV"
+
                 echo "Artefactos del modelo validados correctamente."
 
+          - name: Paso 14 Publicar artefactos del modelo en Cloud Storage
+            if: github.event_name != 'pull_request'
+            shell: bash
+            run: |
+                set -Eeuo pipefail
 
+                echo "Publicando artefactos completos en:"
+                echo "$GCP_RELEASE_DESTINATION"
 
+                gcloud storage cp \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_PKL_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_SKOPS_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_JSON_NAME" \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_BST_NAME" \
+                  "$GCP_RELEASE_DESTINATION/"
 
+                echo "Publicando artefacto compatible con Vertex AI en:"
+                echo "$GCP_VERTEX_DESTINATION"
 
+                gcloud storage cp \
+                  "$GCP_MODEL_DIR/$GCP_MODEL_BST_NAME" \
+                  "$GCP_VERTEX_DESTINATION/$GCP_MODEL_BST_NAME"
 
+                echo "Validando archivos publicados..."
+                gcloud storage ls "$GCP_RELEASE_DESTINATION/"
+                gcloud storage ls "$GCP_VERTEX_DESTINATION/"
 
+                echo "Artefactos publicados correctamente en Cloud Storage."
 
+# set Eeuo pipefail: errexit, nounset, errtrace, pipefail Bash en modo estricto para asegurar que errores silenciosos no pasen desapercibidos.
+#Despligue de modelo en Vertex AI Model Registry. Si el modelo ya existe, se crea una nueva versión; si no, se crea un nuevo modelo.
+          - name: Paso 14 Registrar modelos en Vertex AI Model Registry
+            if: github.event_name != 'pull_request'
+            shell: bash
+            run: |
+                set -Eeuo pipefail
 
+                echo "Buscando un modelo existente con nombre: $MODEL_NAME"
 
+                PARENT_ID="$(
+                  gcloud ai models list \
+                    --project="$GCP_PROJECT_ID" \
+                    --region="$GCP_DEFAULT_REGION" \
+                    --filter="displayName=$MODEL_NAME" \
+                    --sort-by="~createTime" \
+                    --limit=1 \
+                    --format="value(name)"
+                )"
 
+                COMMON_ARGUMENTS=(
+                  "--project=$GCP_PROJECT_ID"
+                  "--region=$GCP_DEFAULT_REGION"
+                  "--display-name=$MODEL_NAME"
+                  "--container-image-uri=$GCP_CONTAINER_IMAGE_URI"
+                  "--artifact-uri=$GCP_VERTEX_DESTINATION/"
+                  "--description=Modelo para prediccion de renovacion de prestamos."
+                  "--labels=environment=dev,git_sha=$SHORT_SHA"
+                  "--version-description=Commit GitHub $GITHUB_SHA"
+                  "--quiet"
+                )
 
+                if [ -n "$PARENT_ID" ]; then
+                  if [[ "$PARENT_ID" == projects/* ]]; then
+                    PARENT_MODEL="$PARENT_ID"
+                  else
+                    PARENT_MODEL="projects/$GCP_PROJECT_ID/locations/$GCP_DEFAULT_REGION/models/$PARENT_ID"
+                  fi
 
+                  echo "Registrando una nueva version en: $PARENT_MODEL"
 
-          - name: Paso 12 Finalizando Servidores
+                  gcloud ai models upload \
+                    "${COMMON_ARGUMENTS[@]}" \
+                    "--parent-model=$PARENT_MODEL"
+                else
+                  echo "No existe un modelo padre. Creando un nuevo modelo."
+
+                  gcloud ai models upload \
+                    "${COMMON_ARGUMENTS[@]}"
+                fi
+
+                echo "Modelo registrado correctamente en Vertex AI Model Registry."
+
+          - name: Paso 15 Etiquetar y publicar imagen FastAPI
+            if: github.event_name != 'pull_request'
+            shell: bash
+            run: |
+                set -Eeuo pipefail
+
+                LOCAL_IMAGE="$IMAGE_NAME_FASTAPI:$IMAGE_VERSION"
+                REMOTE_VERSION="$GCP_ARTIFACT_REGISTRY_URI/$IMAGE_NAME_FASTAPI:$IMAGE_VERSION"
+                REMOTE_COMMIT="$GCP_ARTIFACT_REGISTRY_URI/$IMAGE_NAME_FASTAPI:$SHORT_SHA"
+
+                docker tag "$LOCAL_IMAGE" "$REMOTE_VERSION"
+                docker tag "$LOCAL_IMAGE" "$REMOTE_COMMIT"
+
+                docker push "$REMOTE_VERSION"
+                docker push "$REMOTE_COMMIT"
+
+                echo "Imagen FastAPI publicada correctamente:"
+                echo "Version: $REMOTE_VERSION"
+                echo "Commit: $REMOTE_COMMIT"
+
+          - name: Informar omision de publicacion en PR
+            if: github.event_name == 'pull_request'
+            run: |
+                echo "Autenticacion y Publicacion en Google Cloud omitida: ejecucion de pull request."
+                echo "La autenticacion  y publicacion se ejecutaran despues del push-merge sobre la rama destino: ${{ github.base_ref }}."
+
+          - name: Paso 16 Finalizando Servidores
+            shell: bash
             run: |
                 echo "Finalizando MLflow Server..."
                 pkill -f "mlflow server" || echo "MLflow Server no estaba corriendo."
