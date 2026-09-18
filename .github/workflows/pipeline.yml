@@ -153,7 +153,7 @@ jobs:
 
 # Buildkit permite construir imágenes Docker de manera más eficiente y con soporte para múltiples etapas.
 # Imagen Docker multi-stage para el servidor FastAPI (target=fastapi_server).
-          - name: Paso 11 Construir imagen Docker de FastAPI
+          - name: Paso 10 Construir imagen Docker de FastAPI
             shell: bash
             env:
                 DOCKER_BUILDKIT: "1"
@@ -168,7 +168,7 @@ jobs:
                 docker image inspect "$LOCAL_IMAGE" > /dev/null
                 echo "Imagen FastAPI construida correctamente: $LOCAL_IMAGE"
 
-          - name: Paso 12 Validar y Autentificar con Google Cloud
+          - name: Paso 11 Validar y Autentificar con Google Cloud
             id: gcp-auth
             if: github.event_name != 'pull_request'
             uses: google-github-actions/auth@v3
@@ -194,6 +194,7 @@ jobs:
                 fi
 
           - name: Validar acceso a recursos de Google Cloud
+            if: github.event_name != 'pull_request'
             shell: bash
             run: |
                 echo "Validando acceso al bucket de modelos..."
@@ -252,7 +253,7 @@ jobs:
 
                 echo "Artefactos del modelo validados correctamente."
 
-          - name: Paso 14 Publicar artefactos del modelo en Cloud Storage
+          - name: Paso 12 Publicar artefactos del modelo en Cloud Storage
             if: github.event_name != 'pull_request'
             shell: bash
             run: |
@@ -283,7 +284,7 @@ jobs:
 
 # set Eeuo pipefail: errexit, nounset, errtrace, pipefail Bash en modo estricto para asegurar que errores silenciosos no pasen desapercibidos.
 #Despligue de modelo en Vertex AI Model Registry. Si el modelo ya existe, se crea una nueva versión; si no, se crea un nuevo modelo.
-          - name: Paso 14 Registrar modelos en Vertex AI Model Registry
+          - name: Paso 13 Registrar modelos en Vertex AI Model Registry
             if: github.event_name != 'pull_request'
             shell: bash
             run: |
@@ -334,7 +335,7 @@ jobs:
 
                 echo "Modelo registrado correctamente en Vertex AI Model Registry."
 
-          - name: Paso 15 Etiquetar y publicar imagen FastAPI
+          - name: Paso 14 Etiquetar y publicar imagen FastAPI
             if: github.event_name != 'pull_request'
             shell: bash
             run: |
@@ -360,7 +361,7 @@ jobs:
                 echo "Autenticacion y Publicacion en Google Cloud omitida: ejecucion de pull request."
                 echo "La autenticacion  y publicacion se ejecutaran despues del push-merge sobre la rama destino: ${{ github.base_ref }}."
 
-          - name: Paso 16 Finalizando Servidores
+          - name: Paso 15 Finalizando Servidores
             shell: bash
             run: |
                 echo "Finalizando MLflow Server..."
