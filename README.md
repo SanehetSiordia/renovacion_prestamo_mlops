@@ -118,6 +118,29 @@ En caso de tener cuenta Google Cloud y querer registrar el modelo y API se debe 
 ![](./evidencias/artifact_registry_model.png)
 ![](./evidencias/artifact_registry_model_2.png)
 
+Para autentificarse con Github se utiliza la validacion y autentificacion por OpenOpenID Connect con Workload Identity Federation de GCP:
+
+[Configuring OpenID Connect in Google Cloud Platform ](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-google-cloud-platform)
+
+[Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation) 
+
+![](./evidencias/OICD_project.png)
+
+---
+
+##  Evidencias CI/CD con Despliegue en GCP
+- **Pipeline Github Actions**
+![](./evidencias/pipeline_CICD.png)
+
+- **Registro de Modelos en GCP Bucket**
+![](./evidencias/gcp_bucket_CICD.png)
+
+- **Registro del Aplicativo FastApi en Artifact Registry**
+![](./evidencias/artifact_registry_CICD.png)
+
+- **Registro del modelo en Vertex AI para exposicion del EndPoint.** 
+_Por temas de cuotas ($) no se habilita el consumo del modelo en linea_
+![](./evidencias/vertexAI_CICD.png)
 ---
 
 ## 📂 Estructura del Repositorio

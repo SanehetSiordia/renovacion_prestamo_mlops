@@ -407,8 +407,9 @@ def optimizar_hiperparametros_mlflow(
 def exportar_modelo_resultados(modelo: ClassifierMixin, datos_json: dict) -> None:
 
     log.info(f"=== EXPORTANDO ARTEFACTOS LOCALES A {C.ARTIFACTS_DIR} ===")
-
+    
     C.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    booster = modelo.get_booster()
 
     with open(C.METRICS_PATH, "w", encoding="utf-8") as f:
         json.dump(datos_json, f, ensure_ascii=False, indent=4)
@@ -422,8 +423,12 @@ def exportar_modelo_resultados(modelo: ClassifierMixin, datos_json: dict) -> Non
     log.info(f"Modelo guardado en formato Skops en: {C.MODEL_SKOPS_PATH}")
 
     if isinstance(modelo, XGBClassifier):
-        modelo.get_booster().save_model(C.MODEL_JSON_PATH)
+        booster.save_model(C.MODEL_JSON_PATH)
         log.info(f"Modelo XGBoost guardado nativamente en JSON en: {C.MODEL_JSON_PATH}")
+
+        modelo_ubjson = booster.save_raw(raw_format="ubj")
+        C.MODEL_BST_PATH.write_bytes(bytes(modelo_ubjson))
+        log.info(f"Modelo XGBoost guardado en BST en: {C.MODEL_BST_PATH}")
 
 
 # ── Función principal ─────────────────────────────────────────────────────
