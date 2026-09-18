@@ -124,6 +124,23 @@ Para autentificarse con Github se utiliza la validacion y autentificacion por Op
 
 [Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation) 
 
+![](./evidencias/OICD_project.png)
+
+---
+
+##  Evidencias CI/CD con Despliegue en GCP
+- **Pipeline Github Actions**
+![](./evidencias/pipeline_CICD.png)
+
+- **Registro de Modelos en GCP Bucket**
+![](./evidencias/gcp_bucket_CICD.png)
+
+- **Registro del Aplicativo FastApi en Artifact Registry**
+![](./evidencias/artifact_registry_CICD.png)
+
+- **Registro del modelo en Vertex AI para exposicion del EndPoint.** 
+_Por temas de cuotas ($) no se habilita el consumo del modelo en linea_
+![](./evidencias/vertexAI_CICD.png)
 ---
 
 ## 📂 Estructura del Repositorio
