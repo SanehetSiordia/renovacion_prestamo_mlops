@@ -6,8 +6,6 @@ on:
     push:
         branches:
             - main
-            - feature_*
-            - task_*
     pull_request:
         branches:
             - main
